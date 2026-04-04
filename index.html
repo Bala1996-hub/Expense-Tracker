@@ -423,6 +423,9 @@ function updateLimit(category, value) {
 function render() {
   renderExpenses();
   renderLimits();
+  // SAVE DATA
+  localStorage.setItem("expenses", JSON.stringify(expenses));
+  localStorage.setItem("limits", JSON.stringify(limits));
 }
 
 function renderExpenses() {
@@ -741,6 +744,12 @@ if (fp2) fp2.setDate([firstDay, lastDay], true);
 let dateEl, descEl, amountEl, toggleEl;
 
 window.onload = function () {
+const savedExpenses = localStorage.getItem("expenses");
+const savedLimits = localStorage.getItem("limits");
+
+if (savedExpenses) expenses = JSON.parse(savedExpenses);
+if (savedLimits) limits = JSON.parse(savedLimits);
+
   dateEl = document.getElementById("date");
   descEl = document.getElementById("desc");
   amountEl = document.getElementById("amount");
