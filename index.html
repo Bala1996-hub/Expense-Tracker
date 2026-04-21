@@ -60,11 +60,19 @@ body {
   align-items: center;
 }
 
-#dateRange {
+.filters select,
+#dateRange,
+#dateRangeAnalytics {
   flex: 1;
   min-width: 120px;
   padding: 6px;
   font-size: 12px;
+}
+
+.filters select {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
 }
 
 .filters button {
@@ -244,6 +252,9 @@ button.add {
   <button onclick="setCurrentMonth()" style="font-size:12px; padding:6px 8px;">
     1 M
   </button>
+  <select id="categoryFilter" onchange="setCategoryFilter(this.value)">
+    <option value="all">All Categories</option>
+  </select>
   <input type="text" id="dateRange" placeholder="Date range">
 </div>
 
@@ -336,6 +347,7 @@ let currentFilter = "all";
 let chartInstance = null;
 let analyticsChart = null;
 let analyticsFilter = "all";
+let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
 
@@ -407,9 +419,34 @@ if (!isClaim) {
 /* Filter */
 function setFilter(type, el) {
   currentFilter = type;
-  document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("#expensesTab .filters button").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
   render();
+}
+
+function setCategoryFilter(category) {
+  categoryFilter = category;
+  renderExpenses();
+}
+
+function renderCategoryFilter() {
+  const select = document.getElementById("categoryFilter");
+  if (!select) return;
+
+  const selected = categoryFilter;
+  const allCategories = [...new Set([...categories, ...expenses.map(e => e.category)])].sort();
+
+  select.innerHTML = '<option value="all">All Categories</option>';
+
+  allCategories.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.textContent = cat;
+    select.appendChild(option);
+  });
+
+  select.value = allCategories.includes(selected) ? selected : "all";
+  categoryFilter = select.value;
 }
 
 /* Limits */
@@ -421,6 +458,7 @@ function updateLimit(category, value) {
 
 /* Render */
 function render() {
+  renderCategoryFilter();
   renderExpenses();
   renderLimits();
   // SAVE DATA
@@ -441,9 +479,10 @@ function renderExpenses() {
     else claimTotal += exp.amount;
 
     if (currentFilter !== "all" && exp.type !== currentFilter) return;
+    if (categoryFilter !== "all" && exp.category !== categoryFilter) return;
 
     const totalForCat = expenses
-      .filter(e => e.category === exp.category)
+      .filter(e => e.type === "self" && e.category === exp.category)
       .reduce((sum, e) => sum + e.amount, 0);
 
     const limit = limits[exp.category];
@@ -456,7 +495,7 @@ function renderExpenses() {
       <div>
         <b>${exp.desc}</b><br>
         <small>${exp.date} • ${exp.category}</small>
-        ${limit && totalForCat > limit ? `<div class="exceed">Limit exceeded!</div>` : ""}
+        ${exp.type === "self" && limit && totalForCat > limit ? `<div class="exceed">Limit exceeded!</div>` : ""}
       </div>
 
       <!-- shifted content left using padding -->
@@ -735,6 +774,7 @@ if (fp1) fp1.setDate([firstDay, lastDay], true);
 const fp2 = document.getElementById("dateRangeAnalytics")._flatpickr;
 if (fp2) fp2.setDate([firstDay, lastDay], true);
 
+  renderCategoryFilter();
   renderExpenses();
   renderAnalytics();
 }
@@ -748,7 +788,30 @@ const savedExpenses = localStorage.getItem("expenses");
 const savedLimits = localStorage.getItem("limits");
 
 if (savedExpenses) expenses = JSON.parse(savedExpenses);
+else {
+  expenses = [
+    { date: "2026-04-21", desc: "Lunch", amount: 38, category: "Food", type: "self" },
+    { date: "2026-04-20", desc: "Client taxi", amount: 72, category: "Travel", type: "claim" },
+    { date: "2026-04-18", desc: "Weekly groceries", amount: 245, category: "Grocery", type: "self" },
+    { date: "2026-04-15", desc: "Internet bill", amount: 120, category: "Bills", type: "self" },
+    { date: "2026-04-12", desc: "Office supplies", amount: 55, category: "Shopping", type: "claim" },
+    { date: "2026-04-06", desc: "Pharmacy", amount: 64, category: "Medical", type: "self" },
+    { date: "2026-03-28", desc: "Movie night", amount: 90, category: "Entertainment", type: "self" }
+  ];
+}
+
 if (savedLimits) limits = JSON.parse(savedLimits);
+else {
+  limits = {
+    Food: 500,
+    Grocery: 900,
+    Bills: 600,
+    Travel: 400,
+    Medical: 300,
+    Entertainment: 250,
+    Shopping: 350
+  };
+}
 
   dateEl = document.getElementById("date");
   descEl = document.getElementById("desc");
@@ -789,4 +852,3 @@ if (savedLimits) limits = JSON.parse(savedLimits);
 
 </body>
 </html>
-
