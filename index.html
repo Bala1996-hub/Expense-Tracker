@@ -113,6 +113,24 @@ body {
   min-width: 0;
 }
 
+.record-meta {
+  text-align: right;
+  padding-right: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.record-amount {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .type {
   font-size: 12px;
   padding: 3px 6px;
@@ -349,6 +367,10 @@ button.add {
 
   .expense-item small {
     font-size: 11px;
+  }
+
+  .record-amount {
+    font-size: 14px;
   }
 
   .bottom-card {
@@ -777,8 +799,8 @@ function renderExpenses() {
       </div>
 
       <!-- shifted content left using padding -->
-      <div style="text-align:right; padding-right:22px;">
-        <div>${formatBHD(exp.amount)}</div>
+      <div class="record-meta">
+        <div class="record-amount">${formatBHD(exp.amount)}</div>
         <div class="type ${exp.type}">
           ${exp.type === "claim" ? "Claimable" : "Self"}
         </div>
@@ -827,8 +849,8 @@ function renderLoans() {
         <small>${loan.date} - ${typeLabel}${loan.desc ? ` - ${loan.desc}` : ""}</small>
       </div>
 
-      <div style="text-align:right; padding-right:22px;">
-        <div>${type === "repaid" ? "-" : ""}${formatBHD(loan.amount)}</div>
+      <div class="record-meta">
+        <div class="record-amount">${type === "repaid" ? "-" : ""}${formatBHD(loan.amount)}</div>
         <div class="type self">Loan</div>
       </div>
 
