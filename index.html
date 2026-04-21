@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -263,6 +264,38 @@ button.add {
   font-weight: bold;
 }
 
+.drive-box {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.drive-box input {
+  margin-bottom: 8px;
+}
+
+.drive-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.drive-status {
+  margin-top: 8px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.drive-note {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .analytics-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -397,6 +430,10 @@ button.add {
     padding: 11px;
   }
 
+  .drive-actions {
+    grid-template-columns: 1fr;
+  }
+
   .chart-box,
   .chart-box canvas {
     height: 240px !important;
@@ -509,6 +546,19 @@ button.add {
     Import JSON
   </button>
 
+  <div class="drive-box">
+    <h3 style="margin-top:0;">Google Drive Backup</h3>
+    <input type="text" id="googleClientId" placeholder="Google OAuth Client ID">
+    <input type="text" id="driveBackupFileId" placeholder="Backup file ID (created after first save)">
+    <button type="button" class="add" onclick="connectGoogleDrive()">Connect Google Drive</button>
+    <div class="drive-actions" style="margin-top:8px;">
+      <button type="button" class="add" onclick="saveDriveBackup()">Save Backup</button>
+      <button type="button" class="add" onclick="restoreDriveBackup()">Restore Backup</button>
+    </div>
+    <div id="driveStatus" class="drive-status">Not connected</div>
+    <div class="drive-note">Uses limited Drive access for files this app creates or files you explicitly link by ID.</div>
+  </div>
+
 </div>
 
 <!-- Bottom Input -->
@@ -584,8 +634,17 @@ let analyticsView = "expenses";
 let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
+let driveTokenClient = null;
+let driveAccessToken = "";
+let driveSyncTimer = null;
+let driveSyncInProgress = false;
+let driveSyncQueued = false;
+let driveHasUnsyncedChanges = false;
+let hasLocalBackup = false;
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
+const driveScope = "https://www.googleapis.com/auth/drive.file";
+const driveBackupFileName = "expense-tracker-backup.json";
 
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
@@ -687,6 +746,7 @@ function addExpense() {
   categoryInput.value = "";
 
   render();
+  scheduleDriveSync();
 if (!isClaim) {
   showPopup(category);
 };
@@ -712,6 +772,7 @@ function addLoan() {
   loanDescEl.value = "";
 
   render();
+  scheduleDriveSync();
 }
 
 /* Filter */
@@ -751,21 +812,25 @@ function renderCategoryFilter() {
 function updateLimit(category, value) {
   if (value === "") delete limits[category];
   else limits[category] = parseFloat(value);
-  renderExpenses();
+  render();
+  scheduleDriveSync();
 }
 
 /* Render */
-function render() {
+function render(saveLocal = true) {
   renderCategoryFilter();
   renderLoanFriends();
   renderExpenses();
   renderLoans();
   renderLimits();
-  // SAVE DATA
-  localStorage.setItem("expenses", JSON.stringify(expenses));
-  localStorage.setItem("loans", JSON.stringify(loans));
-  localStorage.setItem("loanFriends", JSON.stringify(loanFriends));
-  localStorage.setItem("limits", JSON.stringify(limits));
+
+  if (saveLocal) {
+    localStorage.setItem("expenses", JSON.stringify(expenses));
+    localStorage.setItem("loans", JSON.stringify(loans));
+    localStorage.setItem("loanFriends", JSON.stringify(loanFriends));
+    localStorage.setItem("limits", JSON.stringify(limits));
+    hasLocalBackup = true;
+  }
 }
 
 function renderExpenses() {
@@ -905,6 +970,7 @@ function renderLoanFriends() {
 function deleteLoan(index) {
   loans.splice(index, 1);
   render();
+  scheduleDriveSync();
 }
 /* Limits */
 function renderLimits() {
@@ -1140,13 +1206,18 @@ function downloadFile(blob, filename) {
   }, 250);
 }
 
-function exportData() {
-  const data = {
+function getBackupData() {
+  return {
     expenses: expenses,
     loans: loans,
     loanFriends: loanFriends,
-    limits: limits
+    limits: limits,
+    exportedAt: new Date().toISOString()
   };
+}
+
+function exportData() {
+  const data = getBackupData();
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json"
@@ -1221,6 +1292,251 @@ function exportExcelData() {
   downloadFile(blob, "expense-data.xlsx");
 }
 
+function setDriveStatus(message) {
+  const status = document.getElementById("driveStatus");
+  if (status) status.innerText = message;
+}
+
+function hasDriveSyncReady() {
+  return Boolean(driveAccessToken);
+}
+
+function scheduleDriveSync() {
+  if (!hasDriveSyncReady()) return;
+
+  driveHasUnsyncedChanges = true;
+  clearTimeout(driveSyncTimer);
+  setDriveStatus("Unsynced local changes. Google Drive will update in a moment.");
+
+  driveSyncTimer = setTimeout(() => {
+    autoSaveDriveBackup();
+  }, 2000);
+}
+
+function saveDriveSettings() {
+  const clientId = document.getElementById("googleClientId")?.value.trim() || "";
+  const fileId = document.getElementById("driveBackupFileId")?.value.trim() || "";
+
+  localStorage.setItem("googleClientId", clientId);
+  localStorage.setItem("driveBackupFileId", fileId);
+}
+
+function loadDriveSettings() {
+  const clientIdEl = document.getElementById("googleClientId");
+  const fileIdEl = document.getElementById("driveBackupFileId");
+
+  if (clientIdEl) clientIdEl.value = localStorage.getItem("googleClientId") || "";
+  if (fileIdEl) fileIdEl.value = localStorage.getItem("driveBackupFileId") || "";
+}
+
+function initDriveTokenClient() {
+  const clientId = document.getElementById("googleClientId")?.value.trim();
+
+  if (!clientId) {
+    setDriveStatus("Enter your Google OAuth Client ID first.");
+    return false;
+  }
+
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    setDriveStatus("Google sign-in library is still loading. Please try again.");
+    return false;
+  }
+
+  saveDriveSettings();
+
+  driveTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: driveScope,
+    callback: tokenResponse => {
+      if (tokenResponse.error) {
+        setDriveStatus(`Google Drive auth failed: ${tokenResponse.error}`);
+        return;
+      }
+
+      driveAccessToken = tokenResponse.access_token;
+      setDriveStatus("Connected to Google Drive.");
+    }
+  });
+
+  return true;
+}
+
+function requestDriveToken() {
+  return new Promise((resolve, reject) => {
+    if (!driveTokenClient && !initDriveTokenClient()) {
+      reject(new Error("Google Drive is not ready."));
+      return;
+    }
+
+    driveTokenClient.callback = tokenResponse => {
+      if (tokenResponse.error) {
+        reject(new Error(tokenResponse.error));
+        return;
+      }
+
+      driveAccessToken = tokenResponse.access_token;
+      setDriveStatus("Connected to Google Drive.");
+      resolve(driveAccessToken);
+    };
+
+    driveTokenClient.requestAccessToken({
+      prompt: driveAccessToken ? "" : "consent"
+    });
+  });
+}
+
+async function connectGoogleDrive() {
+  try {
+    const token = await requestDriveToken();
+
+    if (!hasLocalBackup && document.getElementById("driveBackupFileId").value.trim()) {
+      setDriveStatus("Connected. Local backup missing, restoring from Google Drive...");
+      await restoreDriveBackupWithToken(token);
+      return;
+    }
+
+    setDriveStatus("Connected. Saving initial backup...");
+    await writeDriveBackup(token);
+  } catch (error) {
+    setDriveStatus(`Google Drive connection failed: ${error.message}`);
+  }
+}
+
+function buildMultipartBody(metadata, content) {
+  const boundary = "expense_tracker_boundary_" + Date.now();
+  const body = [
+    `--${boundary}`,
+    "Content-Type: application/json; charset=UTF-8",
+    "",
+    JSON.stringify(metadata),
+    `--${boundary}`,
+    "Content-Type: application/json; charset=UTF-8",
+    "",
+    content,
+    `--${boundary}--`
+  ].join("\r\n");
+
+  return { boundary, body };
+}
+
+async function writeDriveBackup(token) {
+  const fileIdInput = document.getElementById("driveBackupFileId");
+  const fileId = fileIdInput.value.trim();
+  const content = JSON.stringify(getBackupData(), null, 2);
+  const metadata = {
+    name: driveBackupFileName,
+    mimeType: "application/json"
+  };
+  const multipart = buildMultipartBody(metadata, content);
+  const url = fileId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=multipart&fields=id,name,modifiedTime`
+    : "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime";
+  const response = await fetch(url, {
+    method: fileId ? "PATCH" : "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": `multipart/related; boundary=${multipart.boundary}`
+    },
+    body: multipart.body
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  const savedFile = await response.json();
+  const savedAt = new Date();
+  fileIdInput.value = savedFile.id;
+  localStorage.setItem("driveBackupFileId", savedFile.id);
+  localStorage.setItem("lastDriveBackupAt", savedAt.toISOString());
+  driveHasUnsyncedChanges = false;
+  setDriveStatus(`Saved to Google Drive at ${savedAt.toLocaleTimeString()}`);
+  return savedFile;
+}
+
+async function saveDriveBackup() {
+  try {
+    const token = await requestDriveToken();
+    await writeDriveBackup(token);
+  } catch (error) {
+    setDriveStatus(`Google Drive backup failed: ${error.message}`);
+  }
+}
+
+async function autoSaveDriveBackup() {
+  if (!hasDriveSyncReady() || !driveHasUnsyncedChanges) return;
+
+  if (driveSyncInProgress) {
+    driveSyncQueued = true;
+    return;
+  }
+
+  driveSyncInProgress = true;
+  setDriveStatus("Saving to Google Drive...");
+
+  try {
+    await writeDriveBackup(driveAccessToken);
+  } catch (error) {
+    setDriveStatus(`Google Drive auto-sync failed. Reconnect Google Drive to continue. ${error.message}`);
+  } finally {
+    driveSyncInProgress = false;
+
+    if (driveSyncQueued) {
+      driveSyncQueued = false;
+      scheduleDriveSync();
+    }
+  }
+}
+
+function flushDriveSync() {
+  if (!driveHasUnsyncedChanges || !hasDriveSyncReady()) return;
+
+  clearTimeout(driveSyncTimer);
+  autoSaveDriveBackup();
+}
+
+async function restoreDriveBackup() {
+  try {
+    const token = await requestDriveToken();
+    await restoreDriveBackupWithToken(token);
+  } catch (error) {
+    setDriveStatus(`Google Drive restore failed: ${error.message}`);
+  }
+}
+
+async function restoreDriveBackupWithToken(token) {
+  const fileId = document.getElementById("driveBackupFileId").value.trim();
+
+  if (!fileId) {
+    setDriveStatus("Enter a backup file ID first, or create one with Save Backup.");
+    return;
+  }
+
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  const data = await response.json();
+  expenses = data.expenses || [];
+  loans = data.loans || [];
+  loanFriends = data.loanFriends || [];
+  limits = data.limits || {};
+  migrateLoanExpenses();
+  normalizeLoanTypes();
+  syncLoanFriendsFromLoans();
+
+  render();
+  hasLocalBackup = true;
+  driveHasUnsyncedChanges = false;
+  setDriveStatus("Restored backup from Google Drive.");
+}
+
 function importData() {
   const file = document.getElementById("fileInput").files[0];
 
@@ -1242,8 +1558,9 @@ function importData() {
       migrateLoanExpenses();
       syncLoanFriendsFromLoans();
 
-      render();
-      alert("Data imported successfully!");
+    render();
+    scheduleDriveSync();
+    alert("Data imported successfully!");
     } catch {
       alert("Invalid JSON file");
     }
@@ -1279,6 +1596,7 @@ function setAnalyticsFilter(type, el) {
 function deleteExpense(index) {
   expenses.splice(index, 1);
   render();
+  scheduleDriveSync();
 }
 
 function migrateLoanExpenses() {
@@ -1325,7 +1643,7 @@ if (fp1) fp1.setDate([firstDay, lastDay], true);
 const fp2 = document.getElementById("dateRangeAnalytics")._flatpickr;
 if (fp2) fp2.setDate([firstDay, lastDay], true);
 
-  render();
+  render(false);
   renderAnalytics();
 }
 
@@ -1334,11 +1652,20 @@ if (fp2) fp2.setDate([firstDay, lastDay], true);
 let dateEl, descEl, amountEl, toggleEl;
 let loanDateEl, loanFriendEl, loanAmountEl, loanTypeEl, loanDescEl;
 
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushDriveSync();
+});
+
+window.addEventListener("beforeunload", () => {
+  flushDriveSync();
+});
+
 window.onload = function () {
 const savedExpenses = localStorage.getItem("expenses");
 const savedLoans = localStorage.getItem("loans");
 const savedLoanFriends = localStorage.getItem("loanFriends");
 const savedLimits = localStorage.getItem("limits");
+hasLocalBackup = Boolean(savedExpenses || savedLoans || savedLoanFriends || savedLimits);
 
 if (savedExpenses) expenses = JSON.parse(savedExpenses);
 else {
@@ -1381,6 +1708,7 @@ else {
   loanAmountEl = document.getElementById("loanAmount");
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
+  loadDriveSettings();
   
   
   flatpickr("#dateRangeAnalytics", {
