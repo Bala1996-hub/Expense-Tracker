@@ -16,6 +16,7 @@ body {
   margin: 0;
   font-family: Arial;
   background: #f2f4f7;
+  overflow-x: hidden;
 }
 
 .header {
@@ -37,6 +38,8 @@ body {
   padding: 10px;
   border: none;
   background: #ddd;
+  font-size: 14px;
+  min-width: 0;
 }
 
 .tabs .active {
@@ -55,6 +58,7 @@ body {
 
 .filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
   align-items: center;
@@ -64,9 +68,10 @@ body {
 #dateRange,
 #dateRangeAnalytics {
   flex: 1;
-  min-width: 120px;
+  min-width: 135px;
   padding: 6px;
   font-size: 12px;
+  height: 32px;
 }
 
 .filters select {
@@ -79,13 +84,14 @@ body {
   flex: 0 0 auto;
   padding: 6px 8px;
   font-size: 12px;
+  min-height: 32px;
 }
 .filters .active {
   background: #007bff;
   color: white;
 }
 
-.expense-list { padding-bottom: 150px; }
+.expense-list { padding-bottom: 230px; }
 
 .expense-item {
   background: white;
@@ -95,6 +101,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.expense-item > div:first-child {
+  min-width: 0;
 }
 
 .type {
@@ -110,9 +122,11 @@ body {
 .bottom-card {
   position: fixed;
   bottom: 0;
+  left: 0;
   width: 100%;
   background: white;
   padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   z-index: 1;
 }
@@ -129,6 +143,7 @@ input {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ccc;
+  font-size: 16px;
 }
 
 .category-box { position: relative; }
@@ -222,6 +237,84 @@ button.add {
   width:90%;
   max-width:400px;
   border-radius:12px;
+}
+
+@media (max-width: 430px) {
+  .header {
+    padding: 12px;
+  }
+
+  .tabs button {
+    padding: 9px 4px;
+    font-size: 12px;
+  }
+
+  .container {
+    padding: 10px;
+  }
+
+  .totals {
+    font-size: 14px;
+  }
+
+  .filters {
+    gap: 5px;
+  }
+
+  .filters button {
+    flex: 1 1 calc(25% - 5px);
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .filters select,
+  #dateRange,
+  #dateRangeAnalytics {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .expense-item {
+    padding: 10px;
+    border-radius: 8px;
+    align-items: flex-start;
+  }
+
+  .expense-item b {
+    font-size: 14px;
+  }
+
+  .expense-item small {
+    font-size: 11px;
+  }
+
+  .bottom-card {
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .row {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  input {
+    padding: 9px;
+  }
+
+  .toggle {
+    margin: 8px 0;
+    font-size: 14px;
+  }
+
+  button.add {
+    padding: 11px;
+  }
+
+  .expense-list {
+    padding-bottom: 225px;
+  }
 }
 </style>
 </head>
