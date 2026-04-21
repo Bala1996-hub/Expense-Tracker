@@ -93,6 +93,10 @@ body {
 
 .expense-list { padding-bottom: 230px; }
 
+#loansTab .expense-list {
+  padding-bottom: 230px;
+}
+
 .expense-item {
   background: white;
   padding: 12px;
@@ -221,6 +225,64 @@ button.add {
   text-align: right;
 }
 
+.loan-form > input {
+  margin-bottom: 8px;
+}
+
+.loan-form select {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: white;
+  font-size: 16px;
+}
+
+.loan-total {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.analytics-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
+  background: #e8edf3;
+  border-radius: 8px;
+}
+
+.analytics-switch button {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: bold;
+  color: #334155;
+}
+
+.analytics-switch button.active {
+  background: white;
+  color: #007bff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.chart-box {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  max-height: 260px;
+}
+
+.chart-box canvas {
+  width: 100% !important;
+  height: 260px !important;
+}
+
+
 /* Popup */
 #popup {
   display:none;
@@ -312,7 +374,17 @@ button.add {
     padding: 11px;
   }
 
+  .chart-box,
+  .chart-box canvas {
+    height: 240px !important;
+    max-height: 240px;
+  }
+
   .expense-list {
+    padding-bottom: 225px;
+  }
+
+  #loansTab .expense-list {
     padding-bottom: 225px;
   }
 }
@@ -325,6 +397,7 @@ button.add {
 
 <div class="tabs">
   <button class="active" onclick="switchTab('expenses', this)">Expenses</button>
+  <button onclick="switchTab('loans', this)">Loans</button>
   <button onclick="switchTab('limits', this)">Limits</button>
   <button onclick="switchTab('analytics', this)">Analytics</button>
   <button onclick="switchTab('data', this)">Data</button>
@@ -354,6 +427,13 @@ button.add {
   <div id="expenseList" class="expense-list"></div>
 </div>
 
+<!-- Loans -->
+<div id="loansTab" class="container" style="display:none;">
+  <div class="loan-total">Outstanding Loan Balance: <span id="loanTotal">0</span></div>
+
+  <div id="loanList" class="expense-list"></div>
+</div>
+
 <!-- Limits -->
 <div id="limitsTab" class="container" style="display:none;">
   <div id="limitList"></div>
@@ -361,20 +441,37 @@ button.add {
 
 <!-- Analytics -->
 <div id="analyticsTab" class="container" style="display:none;">
-  <h3 style="text-align:center;">Category Distribution</h3>
-
-  <!-- NEW: Sub Tabs -->
-  <div class="filters">
-  <button onclick="setAnalyticsFilter('all', this)" class="active">All</button>
-  <button onclick="setAnalyticsFilter('self', this)">Self</button>
-  <button onclick="setAnalyticsFilter('claim', this)">Claim</button>
-
-  <button onclick="setCurrentMonth()">1 M</button>
-
-  <input type="text" id="dateRangeAnalytics" placeholder="Date range">
+  <div class="analytics-switch">
+    <button onclick="switchAnalyticsView('expenses', this)" class="active">Expenses</button>
+    <button onclick="switchAnalyticsView('loans', this)">Loans</button>
   </div>
 
-  <canvas id="analyticsChart"></canvas>
+  <div id="analyticsExpenseView">
+    <h3 style="text-align:center;">Category Distribution</h3>
+
+    <!-- NEW: Sub Tabs -->
+    <div class="filters">
+    <button onclick="setAnalyticsFilter('all', this)" class="active">All</button>
+    <button onclick="setAnalyticsFilter('self', this)">Self</button>
+    <button onclick="setAnalyticsFilter('claim', this)">Claim</button>
+
+    <button onclick="setCurrentMonth()">1 M</button>
+
+    <input type="text" id="dateRangeAnalytics" placeholder="Date range">
+    </div>
+
+    <div class="chart-box">
+      <canvas id="analyticsChart"></canvas>
+    </div>
+  </div>
+
+  <div id="analyticsLoanView" style="display:none;">
+    <h3 style="text-align:center;">Loan Balance by Friend</h3>
+    <div class="loan-total">Outstanding Loan Balance: <span id="analyticsLoanTotal">0</span></div>
+    <div class="chart-box">
+      <canvas id="loanAnalyticsChart"></canvas>
+    </div>
+  </div>
 </div>
 
 <div id="dataTab" class="container" style="display:none;">
@@ -413,7 +510,23 @@ button.add {
     <span>Claim</span>
   </div>
 
-  <button class="add" onclick="addExpense()">Add Expense</button>
+<button class="add" onclick="addExpense()">Add Expense</button>
+</div>
+
+<!-- Loan Input -->
+<div class="bottom-card loan-form" id="loanInput" style="display:none;">
+  <div class="row">
+    <input type="date" id="loanDate">
+    <input type="number" id="loanAmount" placeholder="Amount">
+  </div>
+  <select id="loanType">
+    <option value="disbursed">Given</option>
+    <option value="repaid">Returned</option>
+  </select>
+  <input type="text" id="loanFriend" list="loanFriendList" placeholder="Friend name">
+  <datalist id="loanFriendList"></datalist>
+  <input type="text" id="loanDesc" placeholder="Notes">
+  <button class="add" onclick="addLoan()" style="margin-top:10px;">Add Loan</button>
 </div>
 
 <!-- Popup -->
@@ -435,11 +548,15 @@ button.add {
 
 <script>
 let expenses = [];
+let loans = [];
+let loanFriends = [];
 let limits = {};
 let currentFilter = "all";
 let chartInstance = null;
 let analyticsChart = null;
+let loanAnalyticsChart = null;
 let analyticsFilter = "all";
+let analyticsView = "expenses";
 let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
@@ -448,6 +565,42 @@ const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel"
 
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
+
+const pieChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: "right",
+      align: "center",
+      labels: {
+        boxWidth: 12,
+        font: {
+          size: 11
+        },
+        generateLabels(chart) {
+          const labels = chart.data.labels || [];
+          const dataset = chart.data.datasets[0] || {};
+          const meta = chart.getDatasetMeta(0);
+
+          return labels.map((label, index) => {
+            const style = meta.controller.getStyle(index);
+
+            return {
+              text: `${label}: ${dataset.data[index] ?? 0}`,
+              fillStyle: style.backgroundColor,
+              strokeStyle: style.borderColor,
+              lineWidth: style.borderWidth,
+              hidden: !chart.getDataVisibility(index),
+              index: index
+            };
+          });
+        }
+      }
+    }
+  }
+};
 
 /* Suggestions */
 categoryInput.addEventListener("input", function () {
@@ -472,9 +625,11 @@ categoryInput.addEventListener("input", function () {
 /* Tabs */
 function switchTab(tab, el) {
   document.getElementById("expensesTab").style.display = tab === "expenses" ? "block" : "none";
+  document.getElementById("loansTab").style.display = tab === "loans" ? "block" : "none";
   document.getElementById("limitsTab").style.display = tab === "limits" ? "block" : "none";
   document.getElementById("analyticsTab").style.display = tab === "analytics" ? "block" : "none";
   document.getElementById("expenseInput").style.display = tab === "expenses" ? "block" : "none";
+  document.getElementById("loanInput").style.display = tab === "loans" ? "block" : "none";
   document.getElementById("dataTab").style.display = tab === "data" ? "block" : "none";
 
   document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
@@ -507,6 +662,28 @@ function addExpense() {
 if (!isClaim) {
   showPopup(category);
 };
+}
+
+function addLoan() {
+  const date = loanDateEl.value;
+  const friend = loanFriendEl.value.trim();
+  const amount = parseFloat(loanAmountEl.value);
+  const type = loanTypeEl.value;
+  const desc = loanDescEl.value;
+
+  if (!date || !friend || !amount) {
+    alert("Fill loan date, friend, and amount");
+    return;
+  }
+
+  loans.unshift({ date, friend, amount, type, desc });
+  addLoanFriend(friend);
+
+  loanFriendEl.value = "";
+  loanAmountEl.value = "";
+  loanDescEl.value = "";
+
+  render();
 }
 
 /* Filter */
@@ -552,10 +729,14 @@ function updateLimit(category, value) {
 /* Render */
 function render() {
   renderCategoryFilter();
+  renderLoanFriends();
   renderExpenses();
+  renderLoans();
   renderLimits();
   // SAVE DATA
   localStorage.setItem("expenses", JSON.stringify(expenses));
+  localStorage.setItem("loans", JSON.stringify(loans));
+  localStorage.setItem("loanFriends", JSON.stringify(loanFriends));
   localStorage.setItem("limits", JSON.stringify(limits));
 }
 
@@ -587,7 +768,7 @@ function renderExpenses() {
     item.innerHTML = `
       <div>
         <b>${exp.desc}</b><br>
-        <small>${exp.date} • ${exp.category}</small>
+        <small>${exp.date} - ${exp.category}</small>
         ${exp.type === "self" && limit && totalForCat > limit ? `<div class="exceed">Limit exceeded!</div>` : ""}
       </div>
 
@@ -608,7 +789,7 @@ function renderExpenses() {
           padding:2px 5px;
           line-height:1;
         ">
-        ✕
+        X
       </button>
     `;
 
@@ -617,6 +798,85 @@ function renderExpenses() {
 
   document.getElementById("selfTotal").innerText = selfTotal;
   document.getElementById("claimTotal").innerText = claimTotal;
+}
+
+function renderLoans() {
+  const list = document.getElementById("loanList");
+  if (!list) return;
+
+  list.innerHTML = "";
+  let loanTotal = 0;
+
+  loans.forEach((loan, index) => {
+    const type = loan.type || "disbursed";
+    const typeLabel = type === "repaid" ? "Returned" : "Given";
+
+    loanTotal += type === "repaid" ? -loan.amount : loan.amount;
+
+    const item = document.createElement("div");
+    item.className = "expense-item";
+    item.style.position = "relative";
+
+    item.innerHTML = `
+      <div>
+        <b>${loan.friend}</b><br>
+        <small>${loan.date} - ${typeLabel}${loan.desc ? ` - ${loan.desc}` : ""}</small>
+      </div>
+
+      <div style="text-align:right; padding-right:22px;">
+        <div>${type === "repaid" ? "-" : ""}${loan.amount}</div>
+        <div class="type self">Loan</div>
+      </div>
+
+      <button onclick="deleteLoan(${index})"
+        style="
+          position:absolute;
+          top:6px;
+          right:6px;
+          font-size:10px;
+          padding:2px 5px;
+          line-height:1;
+        ">
+        X
+      </button>
+    `;
+
+    list.appendChild(item);
+  });
+
+  document.getElementById("loanTotal").innerText = loanTotal;
+}
+
+function addLoanFriend(friend) {
+  const name = friend.trim();
+  if (!name) return;
+
+  const exists = loanFriends.some(f => f.toLowerCase() === name.toLowerCase());
+  if (!exists) loanFriends.push(name);
+
+  loanFriends.sort((a, b) => a.localeCompare(b));
+}
+
+function syncLoanFriendsFromLoans() {
+  loans.forEach(loan => addLoanFriend(loan.friend || ""));
+}
+
+function renderLoanFriends() {
+  const list = document.getElementById("loanFriendList");
+  if (!list) return;
+
+  list.innerHTML = "";
+
+  loanFriends.forEach(friend => {
+    const option = document.createElement("option");
+    option.value = friend;
+    list.appendChild(option);
+  });
+}
+
+function deleteLoan(index) {
+  loans.splice(index, 1);
+  render();
 }
 /* Limits */
 function renderLimits() {
@@ -686,6 +946,11 @@ if (limit && limit > 0) {
 
 /* Analytics */
 function renderAnalytics() {
+  if (analyticsView === "loans") {
+    renderLoanAnalytics();
+    return;
+  }
+
   let totals = {};
 
   expenses.forEach(e => {
@@ -716,7 +981,49 @@ function renderAnalytics() {
       datasets: [{
         data: Object.values(totals)
       }]
-    }
+    },
+    options: pieChartOptions
+  });
+}
+
+function renderLoanAnalytics() {
+  let totals = {};
+  let totalBalance = 0;
+
+  loans.forEach(loan => {
+    if (fromDate && loan.date < fromDate) return;
+    if (toDate && loan.date > toDate) return;
+
+    const type = loan.type || "disbursed";
+    const amount = type === "repaid" ? -loan.amount : loan.amount;
+    totals[loan.friend] = (totals[loan.friend] || 0) + amount;
+  });
+
+  Object.keys(totals).forEach(friend => {
+    if (totals[friend] <= 0) delete totals[friend];
+    else totalBalance += totals[friend];
+  });
+
+  document.getElementById("analyticsLoanTotal").innerText = totalBalance;
+
+  if (loanAnalyticsChart) loanAnalyticsChart.destroy();
+
+  const ctx = document.getElementById("loanAnalyticsChart").getContext("2d");
+
+  if (Object.keys(totals).length === 0) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    return;
+  }
+
+  loanAnalyticsChart = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: Object.keys(totals),
+      datasets: [{
+        data: Object.values(totals)
+      }]
+    },
+    options: pieChartOptions
   });
 }
 
@@ -748,7 +1055,8 @@ expenses.forEach(e => {
     data: {
       labels: Object.keys(totals),
       datasets: [{ data: Object.values(totals) }]
-    }
+    },
+    options: pieChartOptions
   });
 
 const selectedTotal = expenses
@@ -790,6 +1098,8 @@ function closePopup() {
 function exportData() {
   const data = {
     expenses: expenses,
+    loans: loans,
+    loanFriends: loanFriends,
     limits: limits
   };
 
@@ -822,7 +1132,11 @@ function importData() {
       const data = JSON.parse(e.target.result);
 
       expenses = data.expenses || [];
+      loans = data.loans || [];
+      loanFriends = data.loanFriends || [];
       limits = data.limits || {};
+      migrateLoanExpenses();
+      syncLoanFriendsFromLoans();
 
       render();
       alert("Data imported successfully!");
@@ -834,10 +1148,23 @@ function importData() {
   reader.readAsText(file);
 }
 
+function switchAnalyticsView(view, el) {
+  analyticsView = view;
+
+  document.getElementById("analyticsExpenseView").style.display = view === "expenses" ? "block" : "none";
+  document.getElementById("analyticsLoanView").style.display = view === "loans" ? "block" : "none";
+
+  document.querySelectorAll("#analyticsTab > .analytics-switch button")
+    .forEach(b => b.classList.remove("active"));
+
+  el.classList.add("active");
+  renderAnalytics();
+}
+
 function setAnalyticsFilter(type, el) {
   analyticsFilter = type;
 
-  document.querySelectorAll("#analyticsTab .filters button")
+  document.querySelectorAll("#analyticsExpenseView .filters button")
     .forEach(b => b.classList.remove("active"));
 
   el.classList.add("active");
@@ -848,6 +1175,33 @@ function setAnalyticsFilter(type, el) {
 function deleteExpense(index) {
   expenses.splice(index, 1);
   render();
+}
+
+function migrateLoanExpenses() {
+  const loanExpenses = expenses.filter(e => e.category === "Loan");
+  if (!loanExpenses.length) return;
+
+  loanExpenses.forEach(e => {
+    const friend = e.desc || "Friend";
+
+    loans.push({
+      date: e.date,
+      friend: friend,
+      amount: e.amount,
+      type: "disbursed",
+      desc: "Migrated from expenses"
+    });
+
+    addLoanFriend(friend);
+  });
+
+  expenses = expenses.filter(e => e.category !== "Loan");
+}
+
+function normalizeLoanTypes() {
+  loans.forEach(loan => {
+    if (!loan.type) loan.type = "disbursed";
+  });
 }
 
 function setCurrentMonth() {
@@ -867,17 +1221,19 @@ if (fp1) fp1.setDate([firstDay, lastDay], true);
 const fp2 = document.getElementById("dateRangeAnalytics")._flatpickr;
 if (fp2) fp2.setDate([firstDay, lastDay], true);
 
-  renderCategoryFilter();
-  renderExpenses();
+  render();
   renderAnalytics();
 }
 
 
 /* Elements */
 let dateEl, descEl, amountEl, toggleEl;
+let loanDateEl, loanFriendEl, loanAmountEl, loanTypeEl, loanDescEl;
 
 window.onload = function () {
 const savedExpenses = localStorage.getItem("expenses");
+const savedLoans = localStorage.getItem("loans");
+const savedLoanFriends = localStorage.getItem("loanFriends");
 const savedLimits = localStorage.getItem("limits");
 
 if (savedExpenses) expenses = JSON.parse(savedExpenses);
@@ -892,6 +1248,12 @@ else {
     { date: "2026-03-28", desc: "Movie night", amount: 90, category: "Entertainment", type: "self" }
   ];
 }
+
+if (savedLoans) loans = JSON.parse(savedLoans);
+if (savedLoanFriends) loanFriends = JSON.parse(savedLoanFriends);
+migrateLoanExpenses();
+normalizeLoanTypes();
+syncLoanFriendsFromLoans();
 
 if (savedLimits) limits = JSON.parse(savedLimits);
 else {
@@ -910,6 +1272,11 @@ else {
   descEl = document.getElementById("desc");
   amountEl = document.getElementById("amount");
   toggleEl = document.getElementById("typeToggle");
+  loanDateEl = document.getElementById("loanDate");
+  loanFriendEl = document.getElementById("loanFriend");
+  loanAmountEl = document.getElementById("loanAmount");
+  loanTypeEl = document.getElementById("loanType");
+  loanDescEl = document.getElementById("loanDesc");
   
   
   flatpickr("#dateRangeAnalytics", {
