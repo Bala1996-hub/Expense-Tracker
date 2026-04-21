@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -499,7 +500,8 @@ button.add {
 <div id="dataTab" class="container" style="display:none;">
 
   <h3>Export Data</h3>
-  <button class="add" onclick="exportData()">Download JSON</button>
+  <button type="button" class="add" onclick="exportData()">Download JSON</button>
+  <button type="button" class="add" onclick="exportExcelData()" style="margin-top:10px;">Download Excel</button>
 
   <h3 style="margin-top:20px;">Import Data</h3>
   <input type="file" id="fileInput" accept=".json">
@@ -1121,6 +1123,23 @@ function closePopup() {
   document.getElementById("popup").style.display = "none";
 }
 
+function downloadFile(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 250);
+}
+
 function exportData() {
   const data = {
     expenses: expenses,
@@ -1133,14 +1152,73 @@ function exportData() {
     type: "application/json"
   });
 
-  const url = URL.createObjectURL(blob);
+  downloadFile(blob, "expense-data.json");
+}
 
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "expense-data.json";
-  a.click();
+function exportExcelData() {
+  if (typeof XLSX === "undefined") {
+    alert("Excel export library is still loading. Please try again.");
+    return;
+  }
 
-  URL.revokeObjectURL(url);
+  const workbook = XLSX.utils.book_new();
+
+  const expenseRows = expenses.map(exp => ({
+    Date: exp.date,
+    Description: exp.desc,
+    Category: exp.category,
+    Type: exp.type === "claim" ? "Claimable" : "Self",
+    Amount: exp.amount
+  }));
+
+  const loanRows = loans.map(loan => {
+    const type = loan.type || "disbursed";
+    return {
+      Date: loan.date,
+      Friend: loan.friend,
+      Type: type === "repaid" ? "Returned" : "Given",
+      Notes: loan.desc || "",
+      Amount: loan.amount,
+      BalanceImpact: type === "repaid" ? -loan.amount : loan.amount
+    };
+  });
+
+  const limitRows = Object.keys(limits).sort().map(category => ({
+    Category: category,
+    Limit: limits[category]
+  }));
+
+  const selfTotal = expenses
+    .filter(exp => exp.type === "self")
+    .reduce((sum, exp) => sum + exp.amount, 0);
+  const claimTotal = expenses
+    .filter(exp => exp.type === "claim")
+    .reduce((sum, exp) => sum + exp.amount, 0);
+  const loanBalance = loans.reduce((sum, loan) => {
+    const type = loan.type || "disbursed";
+    return sum + (type === "repaid" ? -loan.amount : loan.amount);
+  }, 0);
+
+  const summaryRows = [
+    { Metric: "Self Total", Value: selfTotal },
+    { Metric: "Claim Total", Value: claimTotal },
+    { Metric: "Outstanding Loan Balance", Value: loanBalance }
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Summary");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(expenseRows), "Expenses");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(loanRows), "Loans");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(limitRows), "Limits");
+
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array"
+  });
+  const blob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  downloadFile(blob, "expense-data.xlsx");
 }
 
 function importData() {
