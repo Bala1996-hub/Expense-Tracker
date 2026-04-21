@@ -406,8 +406,8 @@ button.add {
 <!-- Expenses -->
 <div id="expensesTab" class="container">
   <div class="totals">
-    <div>Self: <span id="selfTotal">0</span></div>
-    <div>Claim: <span id="claimTotal">0</span></div>
+    <div>Self: <span id="selfTotal">BHD 0.000</span></div>
+    <div>Claim: <span id="claimTotal">BHD 0.000</span></div>
   </div>
 
  <div class="filters">
@@ -429,7 +429,7 @@ button.add {
 
 <!-- Loans -->
 <div id="loansTab" class="container" style="display:none;">
-  <div class="loan-total">Outstanding Loan Balance: <span id="loanTotal">0</span></div>
+  <div class="loan-total">Outstanding Loan Balance: <span id="loanTotal">BHD 0.000</span></div>
 
   <div id="loanList" class="expense-list"></div>
 </div>
@@ -467,7 +467,7 @@ button.add {
 
   <div id="analyticsLoanView" style="display:none;">
     <h3 style="text-align:center;">Loan Balance by Friend</h3>
-    <div class="loan-total">Outstanding Loan Balance: <span id="analyticsLoanTotal">0</span></div>
+    <div class="loan-total">Outstanding Loan Balance: <span id="analyticsLoanTotal">BHD 0.000</span></div>
     <div class="chart-box">
       <canvas id="loanAnalyticsChart"></canvas>
     </div>
@@ -566,6 +566,10 @@ const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel"
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
 
+function formatBHD(value) {
+  return `BHD ${Number(value || 0).toFixed(3)}`;
+}
+
 const pieChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -588,7 +592,7 @@ const pieChartOptions = {
             const style = meta.controller.getStyle(index);
 
             return {
-              text: `${label}: ${dataset.data[index] ?? 0}`,
+              text: `${label}: ${formatBHD(dataset.data[index] ?? 0)}`,
               fillStyle: style.backgroundColor,
               strokeStyle: style.borderColor,
               lineWidth: style.borderWidth,
@@ -774,7 +778,7 @@ function renderExpenses() {
 
       <!-- shifted content left using padding -->
       <div style="text-align:right; padding-right:22px;">
-        <div>${exp.amount}</div>
+        <div>${formatBHD(exp.amount)}</div>
         <div class="type ${exp.type}">
           ${exp.type === "claim" ? "Claimable" : "Self"}
         </div>
@@ -796,8 +800,8 @@ function renderExpenses() {
     list.appendChild(item);
   });
 
-  document.getElementById("selfTotal").innerText = selfTotal;
-  document.getElementById("claimTotal").innerText = claimTotal;
+  document.getElementById("selfTotal").innerText = formatBHD(selfTotal);
+  document.getElementById("claimTotal").innerText = formatBHD(claimTotal);
 }
 
 function renderLoans() {
@@ -824,7 +828,7 @@ function renderLoans() {
       </div>
 
       <div style="text-align:right; padding-right:22px;">
-        <div>${type === "repaid" ? "-" : ""}${loan.amount}</div>
+        <div>${type === "repaid" ? "-" : ""}${formatBHD(loan.amount)}</div>
         <div class="type self">Loan</div>
       </div>
 
@@ -844,7 +848,7 @@ function renderLoans() {
     list.appendChild(item);
   });
 
-  document.getElementById("loanTotal").innerText = loanTotal;
+  document.getElementById("loanTotal").innerText = formatBHD(loanTotal);
 }
 
 function addLoanFriend(friend) {
@@ -917,7 +921,7 @@ if (limit && limit > 0) {
       <b>
   ${cat}
   <span style="font-weight:normal; font-size:12px; margin-left:6px;">
-    ${limit ? `${total} / ${limit} (${percent}%)` : ""}
+    ${limit ? `${formatBHD(total)} / ${formatBHD(limit)} (${percent}%)` : ""}
   </span>
 </b>
       <input class="limit-input"
@@ -1004,7 +1008,7 @@ function renderLoanAnalytics() {
     else totalBalance += totals[friend];
   });
 
-  document.getElementById("analyticsLoanTotal").innerText = totalBalance;
+  document.getElementById("analyticsLoanTotal").innerText = formatBHD(totalBalance);
 
   if (loanAnalyticsChart) loanAnalyticsChart.destroy();
 
@@ -1079,7 +1083,7 @@ const selectedTotal = expenses
   }
 
   document.getElementById("categoryLabel").innerText =
-    limit ? `${selectedCategory}: ${selectedTotal} / ${limit} (${percent}%)`
+    limit ? `${selectedCategory}: ${formatBHD(selectedTotal)} / ${formatBHD(limit)} (${percent}%)`
           : `${selectedCategory}: No limit set`;
 
   const bar = document.getElementById("progressBar");
