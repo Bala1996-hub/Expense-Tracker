@@ -267,3 +267,18 @@ exports.loadDriveBackup = onRequest({ cors: true }, async (req, res) => {
     sendError(res, error);
   }
 });
+
+exports.disconnectDrive = onRequest({ cors: true }, async (req, res) => {
+  try {
+    await runCors(req, res);
+    if (req.method === "OPTIONS") return res.status(204).send("");
+    if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
+
+    const user = await requireUser(req);
+    await db.collection("users").doc(user.uid).collection("sync").doc("drive").delete();
+
+    res.json({ disconnected: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});

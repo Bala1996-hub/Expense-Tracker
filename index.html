@@ -1473,6 +1473,24 @@ function markFirebaseDriveSyncApproved(message) {
   }
 }
 
+function resetFirebaseDriveState() {
+  firebaseDriveConnected = false;
+  firebaseDriveSyncApproved = false;
+  firebaseDriveAutoSyncEnabled = false;
+  firebaseDriveHasUnsyncedChanges = false;
+  firebaseDriveSyncQueued = false;
+  clearTimeout(firebaseDriveAutoSyncTimer);
+
+  [
+    "firebaseDriveConnected",
+    "firebaseDriveSyncApproved",
+    "firebaseDriveAutoSyncEnabled"
+  ].forEach(key => localStorage.removeItem(key));
+
+  updateSyncBanner();
+  updateFirebaseDriveControls();
+}
+
 function updateFirebaseUser(user) {
   firebaseUser = user || null;
 
@@ -1541,6 +1559,17 @@ async function signOutFirebase() {
   }
 
   try {
+    setFirebaseStatus("Signing out and disconnecting Drive...");
+    if (firebase.firebaseAuth.currentUser) {
+      try {
+        await callFirebaseDriveFunction("disconnectDrive", { method: "POST" });
+        setFirebaseDriveStatus("Google Drive disconnected from Firebase.");
+      } catch (disconnectError) {
+        setFirebaseDriveStatus(`Drive disconnect failed: ${disconnectError.message}`);
+      }
+    }
+
+    resetFirebaseDriveState();
     await firebase.signOut(firebase.firebaseAuth);
   } catch (error) {
     setFirebaseStatus(`Firebase sign-out failed: ${error.message}`);
@@ -1786,12 +1815,7 @@ function clearLocalData() {
   loanFriends = [];
   limits = {};
   hasLocalBackup = false;
-  firebaseDriveConnected = false;
-  firebaseDriveSyncApproved = false;
-  firebaseDriveAutoSyncEnabled = false;
-  firebaseDriveHasUnsyncedChanges = false;
-  updateSyncBanner();
-  updateFirebaseDriveControls();
+  resetFirebaseDriveState();
 
   render(false);
   renderAnalytics();
