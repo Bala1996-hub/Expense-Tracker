@@ -9,7 +9,52 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBUwirnhvEWUudVlrD43xmd4z-frnecbU8",
+    authDomain: "expense-tracker-494021.firebaseapp.com",
+    projectId: "expense-tracker-494021",
+    storageBucket: "expense-tracker-494021.firebasestorage.app",
+    messagingSenderId: "221788457978",
+    appId: "1:221788457978:web:5ea78cd730b96ec1587243",
+    measurementId: "G-FZ8LW2ERV2"
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const firebaseAuth = getAuth(firebaseApp);
+  const firestoreDb = getFirestore(firebaseApp);
+
+  window.expenseFirebase = {
+    firebaseAuth,
+    firestoreDb,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged,
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp
+  };
+
+  window.dispatchEvent(new Event("expenseFirebaseReady"));
+</script>
 
 <style>
 * { box-sizing: border-box; }
@@ -27,6 +72,17 @@ body {
   padding: 14px;
   text-align: center;
   font-weight: bold;
+}
+
+.sync-banner {
+  display: none;
+  background: #fff7ed;
+  color: #9a3412;
+  border-bottom: 1px solid #fed7aa;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .tabs {
@@ -296,6 +352,13 @@ button.add {
   line-height: 1.4;
 }
 
+.sync-user {
+  margin: 8px 0;
+  color: #111827;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .analytics-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -351,6 +414,18 @@ button.add {
   width:90%;
   max-width:400px;
   border-radius:12px;
+}
+
+.popup-chart-box {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  max-height: 240px;
+}
+
+.popup-chart-box canvas {
+  width: 100% !important;
+  height: 240px !important;
 }
 
 @media (max-width: 430px) {
@@ -440,6 +515,12 @@ button.add {
     max-height: 240px;
   }
 
+  .popup-chart-box,
+  .popup-chart-box canvas {
+    height: 220px !important;
+    max-height: 220px;
+  }
+
   .expense-list {
     padding-bottom: 225px;
   }
@@ -454,6 +535,9 @@ button.add {
 <body>
 
 <div class="header">Expense Tracker</div>
+<div id="syncBanner" class="sync-banner">
+  Auto sync is paused for this device. Open Data tab and choose Save Backup or Restore Backup.
+</div>
 
 <div class="tabs">
   <button class="active" onclick="switchTab('expenses', this)">Expenses</button>
@@ -546,17 +630,29 @@ button.add {
     Import JSON
   </button>
 
+  <h3 style="margin-top:20px;">Local Storage</h3>
+  <button type="button" class="add" onclick="clearLocalData()">Clear Local Data</button>
+
   <div class="drive-box">
-    <h3 style="margin-top:0;">Google Drive Backup</h3>
-    <input type="text" id="googleClientId" placeholder="Google OAuth Client ID">
-    <input type="text" id="driveBackupFileId" placeholder="Backup file ID (created after first save)">
-    <button type="button" class="add" onclick="connectGoogleDrive()">Connect Google Drive</button>
-    <div class="drive-actions" style="margin-top:8px;">
-      <button type="button" class="add" onclick="saveDriveBackup()">Save Backup</button>
-      <button type="button" class="add" onclick="restoreDriveBackup()">Restore Backup</button>
+    <h3 style="margin-top:0;">Firebase Account</h3>
+    <button type="button" class="add" id="firebaseSignInBtn" onclick="signInFirebase()">Sign in with Google</button>
+    <button type="button" class="add" id="firebaseSignOutBtn" onclick="signOutFirebase()" style="display:none;margin-top:8px;">Sign Out</button>
+    <div id="firebaseUser" class="sync-user"></div>
+    <div id="firebaseStatus" class="drive-status">Firebase not connected</div>
+    <div class="drive-note">Used to identify each user for server-side Google Drive backup.</div>
+  </div>
+
+  <div class="drive-box">
+    <h3 style="margin-top:0;">Firebase Drive Sync</h3>
+    <input type="text" id="firebaseFunctionsBaseUrl" placeholder="Firebase Functions base URL">
+    <button type="button" class="add" id="firebaseDriveConnectBtn" onclick="connectFirebaseDrive()">Connect Drive Through Firebase</button>
+    <button type="button" class="add" id="firebaseDriveAutoSyncBtn" onclick="enableFirebaseDriveAutoSync()" style="display:none;margin-top:8px;">Auto Sync</button>
+    <div class="drive-actions" id="firebaseDriveDecisionActions" style="margin-top:8px;">
+      <button type="button" class="add" onclick="saveFirebaseDriveBackup()">Save Backup</button>
+      <button type="button" class="add" onclick="restoreFirebaseDriveBackup()">Restore Backup</button>
     </div>
-    <div id="driveStatus" class="drive-status">Not connected</div>
-    <div class="drive-note">Uses limited Drive access for files this app creates or files you explicitly link by ID.</div>
+    <div id="firebaseDriveStatus" class="drive-status">Firebase Drive sync not connected</div>
+    <div class="drive-note">Uses Firebase Functions to keep Google refresh tokens off the webpage.</div>
   </div>
 
 </div>
@@ -607,7 +703,9 @@ button.add {
 <div id="popup">
   <div class="popup-content">
     <h3 style="text-align:center">Expense Breakdown</h3>
-    <canvas id="pieChart"></canvas>
+    <div class="popup-chart-box">
+      <canvas id="pieChart"></canvas>
+    </div>
 
     <div style="margin-top:15px;">
       <div id="categoryLabel"></div>
@@ -634,17 +732,19 @@ let analyticsView = "expenses";
 let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
-let driveTokenClient = null;
-let driveAccessToken = "";
-let driveSyncTimer = null;
-let driveSyncInProgress = false;
-let driveSyncQueued = false;
-let driveHasUnsyncedChanges = false;
 let hasLocalBackup = false;
+let firebaseUser = null;
+let firebaseAuthUnsubscribe = null;
+let firebaseDriveConnected = localStorage.getItem("firebaseDriveConnected") === "true";
+let firebaseDriveSyncApproved = localStorage.getItem("firebaseDriveSyncApproved") === "true";
+let firebaseDriveHasUnsyncedChanges = false;
+let firebaseDriveAutoSyncEnabled = localStorage.getItem("firebaseDriveAutoSyncEnabled") === "true";
+let firebaseDriveAutoSyncTimer = null;
+let firebaseDriveSyncInProgress = false;
+let firebaseDriveSyncQueued = false;
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
-const driveScope = "https://www.googleapis.com/auth/drive.file";
-const driveBackupFileName = "expense-tracker-backup.json";
+const defaultFirebaseFunctionsBaseUrl = "https://us-central1-expense-tracker-494021.cloudfunctions.net";
 
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
@@ -746,7 +846,7 @@ function addExpense() {
   categoryInput.value = "";
 
   render();
-  scheduleDriveSync();
+  noteLocalDataChanged();
 if (!isClaim) {
   showPopup(category);
 };
@@ -772,7 +872,7 @@ function addLoan() {
   loanDescEl.value = "";
 
   render();
-  scheduleDriveSync();
+  noteLocalDataChanged();
 }
 
 /* Filter */
@@ -813,7 +913,7 @@ function updateLimit(category, value) {
   if (value === "") delete limits[category];
   else limits[category] = parseFloat(value);
   render();
-  scheduleDriveSync();
+  noteLocalDataChanged();
 }
 
 /* Render */
@@ -970,7 +1070,7 @@ function renderLoanFriends() {
 function deleteLoan(index) {
   loans.splice(index, 1);
   render();
-  scheduleDriveSync();
+  noteLocalDataChanged();
 }
 /* Limits */
 function renderLimits() {
@@ -1153,6 +1253,10 @@ expenses.forEach(e => {
     options: pieChartOptions
   });
 
+  requestAnimationFrame(() => {
+    chartInstance.resize();
+  });
+
 const selectedTotal = expenses
   .filter(e => {
     if (e.type !== "self" || e.category !== selectedCategory) return false;
@@ -1214,6 +1318,18 @@ function getBackupData() {
     limits: limits,
     exportedAt: new Date().toISOString()
   };
+}
+
+function applyBackupData(data) {
+  expenses = data.expenses || [];
+  loans = data.loans || [];
+  loanFriends = data.loanFriends || [];
+  limits = data.limits || {};
+  migrateLoanExpenses();
+  normalizeLoanTypes();
+  syncLoanFriendsFromLoans();
+  render();
+  hasLocalBackup = true;
 }
 
 function exportData() {
@@ -1292,249 +1408,394 @@ function exportExcelData() {
   downloadFile(blob, "expense-data.xlsx");
 }
 
-function setDriveStatus(message) {
-  const status = document.getElementById("driveStatus");
+function setFirebaseStatus(message) {
+  const status = document.getElementById("firebaseStatus");
   if (status) status.innerText = message;
 }
 
-function hasDriveSyncReady() {
-  return Boolean(driveAccessToken);
+function setFirebaseDriveStatus(message) {
+  const status = document.getElementById("firebaseDriveStatus");
+  if (status) status.innerText = message;
 }
 
-function scheduleDriveSync() {
-  if (!hasDriveSyncReady()) return;
+function updateSyncBanner() {
+  const banner = document.getElementById("syncBanner");
+  if (!banner) return;
 
-  driveHasUnsyncedChanges = true;
-  clearTimeout(driveSyncTimer);
-  setDriveStatus("Unsynced local changes. Google Drive will update in a moment.");
+  const shouldShow = Boolean(firebaseUser && firebaseDriveConnected && !firebaseDriveSyncApproved);
+  banner.style.display = shouldShow ? "block" : "none";
+}
 
-  driveSyncTimer = setTimeout(() => {
-    autoSaveDriveBackup();
+function updateFirebaseDriveControls() {
+  const connectBtn = document.getElementById("firebaseDriveConnectBtn");
+  const autoSyncBtn = document.getElementById("firebaseDriveAutoSyncBtn");
+  const decisionActions = document.getElementById("firebaseDriveDecisionActions");
+
+  if (connectBtn) {
+    connectBtn.style.display = firebaseDriveConnected ? "none" : "block";
+  }
+
+  if (autoSyncBtn) {
+    autoSyncBtn.style.display = firebaseDriveConnected && firebaseDriveSyncApproved ? "block" : "none";
+    autoSyncBtn.innerText = firebaseDriveAutoSyncEnabled ? "Auto Sync On" : "Auto Sync";
+  }
+
+  if (decisionActions) {
+    decisionActions.style.display = firebaseDriveConnected && !firebaseDriveSyncApproved ? "grid" : "none";
+  }
+}
+
+function markFirebaseDriveSyncPaused(message) {
+  firebaseDriveSyncApproved = false;
+  firebaseDriveAutoSyncEnabled = false;
+  localStorage.setItem("firebaseDriveSyncApproved", "false");
+  localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
+  firebaseDriveHasUnsyncedChanges = true;
+  updateSyncBanner();
+  updateFirebaseDriveControls();
+
+  if (message) {
+    setFirebaseDriveStatus(message);
+  }
+}
+
+function markFirebaseDriveSyncApproved(message) {
+  firebaseDriveConnected = true;
+  firebaseDriveSyncApproved = true;
+  firebaseDriveHasUnsyncedChanges = false;
+  localStorage.setItem("firebaseDriveConnected", "true");
+  localStorage.setItem("firebaseDriveSyncApproved", "true");
+  updateSyncBanner();
+  updateFirebaseDriveControls();
+
+  if (message) {
+    setFirebaseDriveStatus(message);
+  }
+}
+
+function updateFirebaseUser(user) {
+  firebaseUser = user || null;
+
+  const userEl = document.getElementById("firebaseUser");
+  const signInBtn = document.getElementById("firebaseSignInBtn");
+  const signOutBtn = document.getElementById("firebaseSignOutBtn");
+
+  if (firebaseUser) {
+    if (userEl) userEl.innerText = `Signed in as ${firebaseUser.email || firebaseUser.displayName || firebaseUser.uid}`;
+    if (signInBtn) signInBtn.style.display = "none";
+    if (signOutBtn) signOutBtn.style.display = "block";
+    setFirebaseStatus("Firebase connected.");
+    if (firebaseDriveConnected && !firebaseDriveSyncApproved) {
+      setFirebaseDriveStatus("Auto sync is paused. Choose Save Backup or Restore Backup before this device syncs.");
+    }
+    updateSyncBanner();
+    updateFirebaseDriveControls();
+    saveFirebaseSyncProfile();
+    return;
+  }
+
+  if (userEl) userEl.innerText = "";
+  if (signInBtn) signInBtn.style.display = "block";
+  if (signOutBtn) signOutBtn.style.display = "none";
+  setFirebaseStatus("Firebase not connected");
+  updateSyncBanner();
+  updateFirebaseDriveControls();
+}
+
+function initFirebaseAuth() {
+  const firebase = window.expenseFirebase;
+
+  if (!firebase) {
+    setFirebaseStatus("Firebase is still loading...");
+    return;
+  }
+
+  if (firebaseAuthUnsubscribe) firebaseAuthUnsubscribe();
+  firebaseAuthUnsubscribe = firebase.onAuthStateChanged(firebase.firebaseAuth, updateFirebaseUser, error => {
+    setFirebaseStatus(`Firebase auth error: ${error.message}`);
+  });
+}
+
+async function signInFirebase() {
+  const firebase = window.expenseFirebase;
+
+  if (!firebase) {
+    setFirebaseStatus("Firebase is still loading. Please try again.");
+    return;
+  }
+
+  try {
+    const provider = new firebase.GoogleAuthProvider();
+    await firebase.signInWithPopup(firebase.firebaseAuth, provider);
+  } catch (error) {
+    setFirebaseStatus(`Firebase sign-in failed: ${error.message}`);
+  }
+}
+
+async function signOutFirebase() {
+  const firebase = window.expenseFirebase;
+
+  if (!firebase) {
+    setFirebaseStatus("Firebase is still loading. Please try again.");
+    return;
+  }
+
+  try {
+    await firebase.signOut(firebase.firebaseAuth);
+  } catch (error) {
+    setFirebaseStatus(`Firebase sign-out failed: ${error.message}`);
+  }
+}
+
+async function saveFirebaseSyncProfile() {
+  const firebase = window.expenseFirebase;
+  if (!firebase || !firebaseUser) return;
+
+  try {
+    const profileRef = firebase.doc(firebase.firestoreDb, "users", firebaseUser.uid, "sync", "profile");
+    await firebase.setDoc(profileRef, {
+      email: firebaseUser.email || "",
+      displayName: firebaseUser.displayName || "",
+      lastSeenAt: firebase.serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    setFirebaseStatus(`Firebase profile save failed: ${error.message}`);
+  }
+}
+
+function saveFirebaseDriveSettings() {
+  const baseUrl = document.getElementById("firebaseFunctionsBaseUrl")?.value.trim() || defaultFirebaseFunctionsBaseUrl;
+  localStorage.setItem("firebaseFunctionsBaseUrl", baseUrl);
+}
+
+function loadFirebaseDriveSettings() {
+  const baseUrlEl = document.getElementById("firebaseFunctionsBaseUrl");
+  if (baseUrlEl) baseUrlEl.value = localStorage.getItem("firebaseFunctionsBaseUrl") || defaultFirebaseFunctionsBaseUrl;
+}
+
+function getFirebaseFunctionsBaseUrl() {
+  const baseUrl = document.getElementById("firebaseFunctionsBaseUrl")?.value.trim() || defaultFirebaseFunctionsBaseUrl;
+  return baseUrl.replace(/\/+$/, "");
+}
+
+function noteLocalDataChanged() {
+  if (!firebaseDriveConnected || !firebaseUser) return;
+
+  if (firebaseDriveSyncApproved && firebaseDriveAutoSyncEnabled) {
+    scheduleFirebaseDriveAutoSync();
+    return;
+  }
+
+  if (firebaseDriveSyncApproved && !firebaseDriveAutoSyncEnabled) {
+    firebaseDriveHasUnsyncedChanges = true;
+    setFirebaseDriveStatus("Local changes are saved on this device. Press Auto Sync to back them up to Google Drive.");
+    return;
+  }
+
+  if (!firebaseDriveSyncApproved) {
+    markFirebaseDriveSyncPaused("Local changes are saved on this device. Firebase Drive auto sync is paused until you choose Save Backup or Restore Backup.");
+  }
+}
+
+function scheduleFirebaseDriveAutoSync() {
+  if (!firebaseDriveConnected || !firebaseDriveSyncApproved || !firebaseDriveAutoSyncEnabled || !firebaseUser) return;
+
+  firebaseDriveHasUnsyncedChanges = true;
+  clearTimeout(firebaseDriveAutoSyncTimer);
+  setFirebaseDriveStatus("Local changes saved. Firebase Drive will sync in a moment.");
+
+  firebaseDriveAutoSyncTimer = setTimeout(() => {
+    autoSaveFirebaseDriveBackup();
   }, 2000);
 }
 
-function saveDriveSettings() {
-  const clientId = document.getElementById("googleClientId")?.value.trim() || "";
-  const fileId = document.getElementById("driveBackupFileId")?.value.trim() || "";
+async function getFirebaseIdToken() {
+  const firebase = window.expenseFirebase;
 
-  localStorage.setItem("googleClientId", clientId);
-  localStorage.setItem("driveBackupFileId", fileId);
-}
-
-function loadDriveSettings() {
-  const clientIdEl = document.getElementById("googleClientId");
-  const fileIdEl = document.getElementById("driveBackupFileId");
-
-  if (clientIdEl) clientIdEl.value = localStorage.getItem("googleClientId") || "";
-  if (fileIdEl) fileIdEl.value = localStorage.getItem("driveBackupFileId") || "";
-}
-
-function initDriveTokenClient() {
-  const clientId = document.getElementById("googleClientId")?.value.trim();
-
-  if (!clientId) {
-    setDriveStatus("Enter your Google OAuth Client ID first.");
-    return false;
+  if (!firebase || !firebase.firebaseAuth.currentUser) {
+    throw new Error("Sign in with Firebase first.");
   }
 
-  if (!window.google || !google.accounts || !google.accounts.oauth2) {
-    setDriveStatus("Google sign-in library is still loading. Please try again.");
-    return false;
-  }
-
-  saveDriveSettings();
-
-  driveTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: driveScope,
-    callback: tokenResponse => {
-      if (tokenResponse.error) {
-        setDriveStatus(`Google Drive auth failed: ${tokenResponse.error}`);
-        return;
-      }
-
-      driveAccessToken = tokenResponse.access_token;
-      setDriveStatus("Connected to Google Drive.");
-    }
-  });
-
-  return true;
+  return firebase.firebaseAuth.currentUser.getIdToken();
 }
 
-function requestDriveToken() {
-  return new Promise((resolve, reject) => {
-    if (!driveTokenClient && !initDriveTokenClient()) {
-      reject(new Error("Google Drive is not ready."));
-      return;
-    }
+async function callFirebaseDriveFunction(functionName, options = {}) {
+  saveFirebaseDriveSettings();
 
-    driveTokenClient.callback = tokenResponse => {
-      if (tokenResponse.error) {
-        reject(new Error(tokenResponse.error));
-        return;
-      }
-
-      driveAccessToken = tokenResponse.access_token;
-      setDriveStatus("Connected to Google Drive.");
-      resolve(driveAccessToken);
-    };
-
-    driveTokenClient.requestAccessToken({
-      prompt: driveAccessToken ? "" : "consent"
-    });
-  });
-}
-
-async function connectGoogleDrive() {
-  try {
-    const token = await requestDriveToken();
-
-    if (!hasLocalBackup && document.getElementById("driveBackupFileId").value.trim()) {
-      setDriveStatus("Connected. Local backup missing, restoring from Google Drive...");
-      await restoreDriveBackupWithToken(token);
-      return;
-    }
-
-    setDriveStatus("Connected. Saving initial backup...");
-    await writeDriveBackup(token);
-  } catch (error) {
-    setDriveStatus(`Google Drive connection failed: ${error.message}`);
-  }
-}
-
-function buildMultipartBody(metadata, content) {
-  const boundary = "expense_tracker_boundary_" + Date.now();
-  const body = [
-    `--${boundary}`,
-    "Content-Type: application/json; charset=UTF-8",
-    "",
-    JSON.stringify(metadata),
-    `--${boundary}`,
-    "Content-Type: application/json; charset=UTF-8",
-    "",
-    content,
-    `--${boundary}--`
-  ].join("\r\n");
-
-  return { boundary, body };
-}
-
-async function writeDriveBackup(token) {
-  const fileIdInput = document.getElementById("driveBackupFileId");
-  const fileId = fileIdInput.value.trim();
-  const content = JSON.stringify(getBackupData(), null, 2);
-  const metadata = {
-    name: driveBackupFileName,
-    mimeType: "application/json"
+  const token = await getFirebaseIdToken();
+  const headers = {
+    Authorization: `Bearer ${token}`
   };
-  const multipart = buildMultipartBody(metadata, content);
-  const url = fileId
-    ? `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=multipart&fields=id,name,modifiedTime`
-    : "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime";
-  const response = await fetch(url, {
-    method: fileId ? "PATCH" : "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": `multipart/related; boundary=${multipart.boundary}`
-    },
-    body: multipart.body
+
+  if (options.body) headers["Content-Type"] = "application/json";
+
+  const response = await fetch(`${getFirebaseFunctionsBaseUrl()}/${functionName}`, {
+    method: options.method || "GET",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
   });
 
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : { error: await response.text() };
+
   if (!response.ok) {
-    throw new Error(await response.text());
+    throw new Error(data.error || "Firebase Drive request failed.");
   }
 
-  const savedFile = await response.json();
-  const savedAt = new Date();
-  fileIdInput.value = savedFile.id;
-  localStorage.setItem("driveBackupFileId", savedFile.id);
-  localStorage.setItem("lastDriveBackupAt", savedAt.toISOString());
-  driveHasUnsyncedChanges = false;
-  setDriveStatus(`Saved to Google Drive at ${savedAt.toLocaleTimeString()}`);
-  return savedFile;
+  return data;
 }
 
-async function saveDriveBackup() {
+async function connectFirebaseDrive() {
   try {
-    const token = await requestDriveToken();
-    await writeDriveBackup(token);
+    const returnUrl = `${location.origin}${location.pathname}`;
+    const data = await callFirebaseDriveFunction("startDriveAuth", {
+      method: "POST",
+      body: { returnUrl }
+    });
+
+    setFirebaseDriveStatus("Opening Google Drive permission screen...");
+    location.href = data.authUrl;
   } catch (error) {
-    setDriveStatus(`Google Drive backup failed: ${error.message}`);
+    setFirebaseDriveStatus(`Firebase Drive connection failed: ${error.message}`);
   }
 }
 
-async function autoSaveDriveBackup() {
-  if (!hasDriveSyncReady() || !driveHasUnsyncedChanges) return;
+async function saveFirebaseDriveBackup() {
+  try {
+    setFirebaseDriveStatus("Saving backup through Firebase...");
+    const data = await callFirebaseDriveFunction("saveDriveBackup", {
+      method: "POST",
+      body: { backup: getBackupData() }
+    });
 
-  if (driveSyncInProgress) {
-    driveSyncQueued = true;
+    markFirebaseDriveSyncApproved(`Saved to user's Google Drive. File ID: ${data.backupFileId}`);
+  } catch (error) {
+    setFirebaseDriveStatus(`Firebase Drive backup failed: ${error.message}`);
+  }
+}
+
+async function autoSaveFirebaseDriveBackup() {
+  if (!firebaseDriveHasUnsyncedChanges || !firebaseDriveAutoSyncEnabled || !firebaseDriveSyncApproved) return;
+
+  if (firebaseDriveSyncInProgress) {
+    firebaseDriveSyncQueued = true;
     return;
   }
 
-  driveSyncInProgress = true;
-  setDriveStatus("Saving to Google Drive...");
+  firebaseDriveSyncInProgress = true;
+  setFirebaseDriveStatus("Auto syncing to Google Drive...");
 
   try {
-    await writeDriveBackup(driveAccessToken);
+    const data = await callFirebaseDriveFunction("saveDriveBackup", {
+      method: "POST",
+      body: { backup: getBackupData() }
+    });
+
+    firebaseDriveHasUnsyncedChanges = false;
+    setFirebaseDriveStatus(`Auto synced to user's Google Drive. File ID: ${data.backupFileId}`);
   } catch (error) {
-    setDriveStatus(`Google Drive auto-sync failed. Reconnect Google Drive to continue. ${error.message}`);
+    firebaseDriveAutoSyncEnabled = false;
+    localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
+    updateFirebaseDriveControls();
+    setFirebaseDriveStatus(`Firebase Drive auto sync failed: ${error.message}`);
   } finally {
-    driveSyncInProgress = false;
+    firebaseDriveSyncInProgress = false;
 
-    if (driveSyncQueued) {
-      driveSyncQueued = false;
-      scheduleDriveSync();
+    if (firebaseDriveSyncQueued) {
+      firebaseDriveSyncQueued = false;
+      scheduleFirebaseDriveAutoSync();
     }
   }
 }
 
-function flushDriveSync() {
-  if (!driveHasUnsyncedChanges || !hasDriveSyncReady()) return;
-
-  clearTimeout(driveSyncTimer);
-  autoSaveDriveBackup();
-}
-
-async function restoreDriveBackup() {
-  try {
-    const token = await requestDriveToken();
-    await restoreDriveBackupWithToken(token);
-  } catch (error) {
-    setDriveStatus(`Google Drive restore failed: ${error.message}`);
-  }
-}
-
-async function restoreDriveBackupWithToken(token) {
-  const fileId = document.getElementById("driveBackupFileId").value.trim();
-
-  if (!fileId) {
-    setDriveStatus("Enter a backup file ID first, or create one with Save Backup.");
+async function enableFirebaseDriveAutoSync() {
+  if (!firebaseDriveConnected || !firebaseDriveSyncApproved) {
+    setFirebaseDriveStatus("Choose Save Backup or Restore Backup before enabling auto sync on this device.");
     return;
   }
 
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  firebaseDriveAutoSyncEnabled = true;
+  localStorage.setItem("firebaseDriveAutoSyncEnabled", "true");
+  updateFirebaseDriveControls();
 
-  if (!response.ok) {
-    throw new Error(await response.text());
+  if (firebaseDriveHasUnsyncedChanges) {
+    await autoSaveFirebaseDriveBackup();
+    return;
   }
 
-  const data = await response.json();
-  expenses = data.expenses || [];
-  loans = data.loans || [];
-  loanFriends = data.loanFriends || [];
-  limits = data.limits || {};
-  migrateLoanExpenses();
-  normalizeLoanTypes();
-  syncLoanFriendsFromLoans();
+  setFirebaseDriveStatus("Auto sync is on for this device.");
+}
 
-  render();
-  hasLocalBackup = true;
-  driveHasUnsyncedChanges = false;
-  setDriveStatus("Restored backup from Google Drive.");
+async function restoreFirebaseDriveBackup() {
+  try {
+    setFirebaseDriveStatus("Restoring backup through Firebase...");
+    const data = await callFirebaseDriveFunction("loadDriveBackup");
+
+    applyBackupData(data.backup || {});
+    markFirebaseDriveSyncApproved(`Restored from user's Google Drive. File ID: ${data.backupFileId}`);
+  } catch (error) {
+    setFirebaseDriveStatus(`Firebase Drive restore failed: ${error.message}`);
+  }
+}
+
+function handleFirebaseDriveRedirectStatus() {
+  const params = new URLSearchParams(location.search);
+
+  if (params.get("driveConnected") === "1") {
+    firebaseDriveConnected = true;
+    firebaseDriveSyncApproved = false;
+    firebaseDriveAutoSyncEnabled = false;
+    localStorage.setItem("firebaseDriveConnected", "true");
+    localStorage.setItem("firebaseDriveSyncApproved", "false");
+    localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
+    setFirebaseDriveStatus("Google Drive connected through Firebase. Auto sync is paused until you choose Save Backup or Restore Backup.");
+    updateSyncBanner();
+    updateFirebaseDriveControls();
+  }
+
+  if (params.get("driveError")) {
+    setFirebaseDriveStatus(`Google Drive connection failed: ${params.get("driveError")}`);
+  }
+}
+
+function flushFirebaseDriveSync() {
+  if (!firebaseDriveHasUnsyncedChanges || !firebaseDriveAutoSyncEnabled || !firebaseDriveSyncApproved) return;
+
+  clearTimeout(firebaseDriveAutoSyncTimer);
+  autoSaveFirebaseDriveBackup();
+}
+
+function clearLocalData() {
+  const confirmed = confirm("Clear local data from this browser? Google Drive backups will not be deleted.");
+  if (!confirmed) return;
+
+  [
+    "expenses",
+    "loans",
+    "loanFriends",
+    "limits",
+    "firebaseDriveConnected",
+    "firebaseDriveSyncApproved",
+    "firebaseDriveAutoSyncEnabled"
+  ].forEach(key => localStorage.removeItem(key));
+
+  expenses = [];
+  loans = [];
+  loanFriends = [];
+  limits = {};
+  hasLocalBackup = false;
+  firebaseDriveConnected = false;
+  firebaseDriveSyncApproved = false;
+  firebaseDriveAutoSyncEnabled = false;
+  firebaseDriveHasUnsyncedChanges = false;
+  updateSyncBanner();
+  updateFirebaseDriveControls();
+
+  render(false);
+  renderAnalytics();
+  setFirebaseDriveStatus("Local data cleared on this device. Firebase Drive sync was reset.");
 }
 
 function importData() {
@@ -1551,15 +1812,8 @@ function importData() {
     try {
       const data = JSON.parse(e.target.result);
 
-      expenses = data.expenses || [];
-      loans = data.loans || [];
-      loanFriends = data.loanFriends || [];
-      limits = data.limits || {};
-      migrateLoanExpenses();
-      syncLoanFriendsFromLoans();
-
-    render();
-    scheduleDriveSync();
+    applyBackupData(data);
+    noteLocalDataChanged();
     alert("Data imported successfully!");
     } catch {
       alert("Invalid JSON file");
@@ -1596,7 +1850,7 @@ function setAnalyticsFilter(type, el) {
 function deleteExpense(index) {
   expenses.splice(index, 1);
   render();
-  scheduleDriveSync();
+  noteLocalDataChanged();
 }
 
 function migrateLoanExpenses() {
@@ -1653,12 +1907,16 @@ let dateEl, descEl, amountEl, toggleEl;
 let loanDateEl, loanFriendEl, loanAmountEl, loanTypeEl, loanDescEl;
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") flushDriveSync();
+  if (document.visibilityState === "hidden") {
+    flushFirebaseDriveSync();
+  }
 });
 
 window.addEventListener("beforeunload", () => {
-  flushDriveSync();
+  flushFirebaseDriveSync();
 });
+
+window.addEventListener("expenseFirebaseReady", initFirebaseAuth);
 
 window.onload = function () {
 const savedExpenses = localStorage.getItem("expenses");
@@ -1708,7 +1966,10 @@ else {
   loanAmountEl = document.getElementById("loanAmount");
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
-  loadDriveSettings();
+  loadFirebaseDriveSettings();
+  updateFirebaseDriveControls();
+  initFirebaseAuth();
+  handleFirebaseDriveRedirectStatus();
   
   
   flatpickr("#dateRangeAnalytics", {
