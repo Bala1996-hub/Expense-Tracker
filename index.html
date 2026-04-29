@@ -40,6 +40,17 @@ body {
   text-align: center;
 }
 
+.sync-banner button {
+  border: 1px solid #fb923c;
+  background: white;
+  color: #9a3412;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .tabs {
   display: flex;
   position: relative;
@@ -393,6 +404,48 @@ button.add {
   height: 240px !important;
 }
 
+.encryption-modal {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.55);
+  z-index:1000;
+  padding:18px;
+}
+
+.encryption-modal-content {
+  background:white;
+  margin:12vh auto 0;
+  padding:16px;
+  width:100%;
+  max-width:420px;
+  border-radius:8px;
+  box-shadow:0 16px 40px rgba(15,23,42,0.22);
+}
+
+.modal-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.modal-header h3 {
+  margin:0;
+}
+
+.icon-button {
+  border:none;
+  background:#eef2f7;
+  color:#334155;
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  font-size:20px;
+  line-height:1;
+}
+
 @media (max-width: 430px) {
   .header {
     padding: 12px;
@@ -501,7 +554,8 @@ button.add {
 
 <div class="header">Expense Tracker</div>
 <div id="syncBanner" class="sync-banner">
-  Supabase sync needs attention. Open the Data tab to check account status.
+  Encrypted data is locked.
+  <button type="button" onclick="openEncryptionPrompt()">Unlock</button>
 </div>
 
 <div class="tabs">
@@ -588,6 +642,7 @@ button.add {
   <h3>Export Data</h3>
   <button type="button" class="add" onclick="exportData()">Download JSON</button>
   <button type="button" class="add" onclick="exportExcelData()" style="margin-top:10px;">Download Excel</button>
+  <button type="button" class="add" onclick="exportEncryptedData()" style="margin-top:10px;">Download Encrypted Vault</button>
 
   <h3 style="margin-top:20px;">Import Data</h3>
   <input type="file" id="fileInput" accept=".json">
@@ -616,9 +671,9 @@ button.add {
 
   <div class="sync-box">
     <h3 style="margin-top:0;">Data Encryption</h3>
-    <input type="password" id="encryptionPassphrase" placeholder="Private encryption passphrase" autocomplete="current-password">
-    <button type="button" class="add" id="encryptionUnlockBtn" onclick="unlockEncryptedData()">Unlock Encrypted Data</button>
     <div id="encryptionStatus" class="sync-status">Enter your passphrase after signing in.</div>
+    <button type="button" class="add" id="openEncryptionPromptBtn" onclick="openEncryptionPrompt()" style="margin-top:10px;display:none;">Open Encryption Popup</button>
+    <button type="button" class="add" id="changePassphraseBtn" onclick="openPassphraseChangePrompt()" style="margin-top:10px;display:none;">Change Passphrase</button>
     <div class="sync-note">Your passphrase is not saved in the browser. If it is forgotten, encrypted Supabase data cannot be recovered.</div>
   </div>
 
@@ -628,6 +683,33 @@ button.add {
     <div class="sync-note">Expenses, loans, and limits are encrypted before they leave this page, then saved to Supabase automatically.</div>
   </div>
 
+</div>
+
+<div id="encryptionModal" class="encryption-modal" role="dialog" aria-modal="true" aria-labelledby="encryptionModalTitle">
+  <div class="encryption-modal-content">
+    <div class="modal-header">
+      <h3 id="encryptionModalTitle">Create or Unlock Data</h3>
+      <button type="button" class="icon-button" onclick="closeEncryptionPrompt()" aria-label="Close encryption popup">&times;</button>
+    </div>
+    <input type="password" id="encryptionPassphrase" placeholder="Private encryption passphrase" autocomplete="current-password">
+    <button type="button" class="add" id="encryptionUnlockBtn" onclick="unlockEncryptedData()">Unlock Encrypted Data</button>
+    <div id="encryptionModalStatus" class="sync-status">Enter your passphrase to create or decrypt your Supabase vault.</div>
+    <div class="sync-note">First time: choose a passphrase. Returning user: enter the same passphrase. If it is forgotten, encrypted Supabase data cannot be recovered.</div>
+  </div>
+</div>
+
+<div id="passphraseChangeModal" class="encryption-modal" role="dialog" aria-modal="true" aria-labelledby="passphraseChangeTitle">
+  <div class="encryption-modal-content">
+    <div class="modal-header">
+      <h3 id="passphraseChangeTitle">Change Passphrase</h3>
+      <button type="button" class="icon-button" onclick="closePassphraseChangePrompt()" aria-label="Close passphrase popup">&times;</button>
+    </div>
+    <input type="password" id="currentPassphrase" placeholder="Current passphrase" autocomplete="current-password">
+    <input type="password" id="newPassphrase" placeholder="New passphrase" autocomplete="new-password">
+    <input type="password" id="confirmNewPassphrase" placeholder="Confirm new passphrase" autocomplete="new-password">
+    <button type="button" class="add" onclick="changeEncryptionPassphrase()">Update Passphrase</button>
+    <div id="passphraseChangeStatus" class="sync-status">Re-encrypts your Supabase vault with the new passphrase.</div>
+  </div>
 </div>
 
 <!-- Bottom Input -->
@@ -653,7 +735,8 @@ button.add {
     <span>Claim</span>
   </div>
 
-<button class="add" onclick="addExpense()">Add Expense</button>
+<button class="add" id="expenseSubmitBtn" onclick="addExpense()">Add Expense</button>
+<button class="add" id="expenseCancelEditBtn" onclick="cancelExpenseEdit()" style="display:none;margin-top:8px;background:#64748b;">Cancel Edit</button>
 </div>
 
 <!-- Loan Input -->
@@ -669,7 +752,8 @@ button.add {
   <input type="text" id="loanFriend" list="loanFriendList" placeholder="Friend name">
   <datalist id="loanFriendList"></datalist>
   <input type="text" id="loanDesc" placeholder="Notes">
-  <button class="add" onclick="addLoan()" style="margin-top:10px;">Add Loan</button>
+  <button class="add" id="loanSubmitBtn" onclick="addLoan()" style="margin-top:10px;">Add Loan</button>
+  <button class="add" id="loanCancelEditBtn" onclick="cancelLoanEdit()" style="display:none;margin-top:8px;background:#64748b;">Cancel Edit</button>
 </div>
 
 <!-- Popup -->
@@ -717,6 +801,11 @@ let supabaseMagicLinkSent = false;
 let encryptionKey = null;
 let encryptionSalt = "";
 let encryptionUnlocked = false;
+let encryptionPromptDismissed = false;
+let editExpenseIndex = -1;
+let editLoanIndex = -1;
+let magicLinkCooldownTimer = null;
+let magicLinkCooldownUntil = 0;
 const SUPABASE_DEFAULT_URL = "https://cwgcdcrhqyrrbdogeoud.supabase.co";
 const SUPABASE_DEFAULT_KEY = "sb_publishable_nxii-GFhfzaqD7y6V5S_mg_AIbufSjs";
 const SUPABASE_REDIRECT_URL = "https://bala1996-hub.github.io/Expense-Tracker/";
@@ -804,6 +893,25 @@ function switchTab(tab, el) {
   if (tab === "analytics") renderAnalytics();
 }
 
+function activateTab(tab) {
+  const buttons = [...document.querySelectorAll(".tabs button")];
+  const labels = { expenses: "Expenses", loans: "Loans", limits: "Limits", analytics: "Analytics", data: "Data" };
+  const button = buttons.find(item => item.innerText === labels[tab]);
+  if (button) switchTab(tab, button);
+}
+
+function updateEditButtons() {
+  const expenseSubmitBtn = document.getElementById("expenseSubmitBtn");
+  const expenseCancelBtn = document.getElementById("expenseCancelEditBtn");
+  const loanSubmitBtn = document.getElementById("loanSubmitBtn");
+  const loanCancelBtn = document.getElementById("loanCancelEditBtn");
+
+  if (expenseSubmitBtn) expenseSubmitBtn.innerText = editExpenseIndex >= 0 ? "Update Expense" : "Add Expense";
+  if (expenseCancelBtn) expenseCancelBtn.style.display = editExpenseIndex >= 0 ? "block" : "none";
+  if (loanSubmitBtn) loanSubmitBtn.innerText = editLoanIndex >= 0 ? "Update Loan" : "Add Loan";
+  if (loanCancelBtn) loanCancelBtn.style.display = editLoanIndex >= 0 ? "block" : "none";
+}
+
 /* Add Expense */
 function addExpense() {
   if (!canWriteSupabaseData()) return;
@@ -819,15 +927,23 @@ function addExpense() {
     return;
   }
 
-  expenses.unshift({ date, desc, amount, category, type: isClaim ? "claim" : "self" });
+  const nextExpense = { date, desc, amount, category, type: isClaim ? "claim" : "self" };
+  const wasEditingExpense = editExpenseIndex >= 0;
+  if (wasEditingExpense) {
+    expenses[editExpenseIndex] = nextExpense;
+  } else {
+    expenses.unshift(nextExpense);
+  }
 
   descEl.value = "";
   amountEl.value = "";
   categoryInput.value = "";
+  editExpenseIndex = -1;
+  updateEditButtons();
 
   render();
   noteLocalDataChanged();
-if (!isClaim) {
+if (!isClaim && !wasEditingExpense) {
   showPopup(category);
 };
 }
@@ -846,12 +962,20 @@ function addLoan() {
     return;
   }
 
-  loans.unshift({ date, friend, amount, type, desc });
+  const nextLoan = { date, friend, amount, type, desc };
+  const wasEditingLoan = editLoanIndex >= 0;
+  if (wasEditingLoan) {
+    loans[editLoanIndex] = nextLoan;
+  } else {
+    loans.unshift(nextLoan);
+  }
   addLoanFriend(friend);
 
   loanFriendEl.value = "";
   loanAmountEl.value = "";
   loanDescEl.value = "";
+  editLoanIndex = -1;
+  updateEditButtons();
 
   render();
   noteLocalDataChanged();
@@ -960,6 +1084,17 @@ function renderExpenses() {
         ">
         X
       </button>
+      <button onclick="editExpense(${index})"
+        style="
+          position:absolute;
+          bottom:6px;
+          right:6px;
+          font-size:10px;
+          padding:2px 5px;
+          line-height:1;
+        ">
+        Edit
+      </button>
     `;
 
     list.appendChild(item);
@@ -1008,6 +1143,17 @@ function renderLoans() {
         ">
         X
       </button>
+      <button onclick="editLoan(${index})"
+        style="
+          position:absolute;
+          bottom:6px;
+          right:6px;
+          font-size:10px;
+          padding:2px 5px;
+          line-height:1;
+        ">
+        Edit
+      </button>
     `;
 
     list.appendChild(item);
@@ -1047,8 +1193,34 @@ function deleteLoan(index) {
   if (!canWriteSupabaseData()) return;
 
   loans.splice(index, 1);
+  if (editLoanIndex === index) cancelLoanEdit();
+  else if (editLoanIndex > index) editLoanIndex -= 1;
   render();
   noteLocalDataChanged();
+}
+
+function editLoan(index) {
+  if (!canWriteSupabaseData()) return;
+
+  const loan = loans[index];
+  if (!loan) return;
+
+  editLoanIndex = index;
+  loanDateEl.value = loan.date || "";
+  loanAmountEl.value = loan.amount || "";
+  loanTypeEl.value = loan.type || "disbursed";
+  loanFriendEl.value = loan.friend || "";
+  loanDescEl.value = loan.desc || "";
+  updateEditButtons();
+  activateTab("loans");
+}
+
+function cancelLoanEdit() {
+  editLoanIndex = -1;
+  loanAmountEl.value = "";
+  loanFriendEl.value = "";
+  loanDescEl.value = "";
+  updateEditButtons();
 }
 /* Limits */
 function renderLimits() {
@@ -1403,13 +1575,41 @@ function setSupabaseSyncStatus(message) {
 function setEncryptionStatus(message) {
   const status = document.getElementById("encryptionStatus");
   if (status) status.innerText = message;
+  const modalStatus = document.getElementById("encryptionModalStatus");
+  if (modalStatus) modalStatus.innerText = message;
 }
 
 function updateSyncBanner() {
   const banner = document.getElementById("syncBanner");
   if (!banner) return;
 
-  banner.style.display = "none";
+  banner.style.display = supabaseUser && !encryptionUnlocked && encryptionPromptDismissed ? "block" : "none";
+}
+
+function openEncryptionPrompt() {
+  if (!supabaseUser || encryptionUnlocked) return;
+
+  const modal = document.getElementById("encryptionModal");
+  if (modal) modal.style.display = "block";
+  encryptionPromptDismissed = false;
+  updateSyncBanner();
+
+  const passphraseInput = document.getElementById("encryptionPassphrase");
+  if (passphraseInput) passphraseInput.focus();
+}
+
+function closeEncryptionPrompt() {
+  const modal = document.getElementById("encryptionModal");
+  if (modal) modal.style.display = "none";
+
+  if (supabaseUser && !encryptionUnlocked) {
+    encryptionPromptDismissed = true;
+    setEncryptionStatus("Encrypted data is locked. Open the popup to unlock it.");
+    setSupabaseSyncStatus("Encrypted data is locked. Unlock it before changing data.");
+  }
+
+  updateSyncBanner();
+  updateSupabaseControls();
 }
 
 function updateSupabaseControls() {
@@ -1419,19 +1619,53 @@ function updateSupabaseControls() {
   const userEl = document.getElementById("supabaseUser");
   const passphraseInput = document.getElementById("encryptionPassphrase");
   const unlockBtn = document.getElementById("encryptionUnlockBtn");
+  const openPromptBtn = document.getElementById("openEncryptionPromptBtn");
+  const changePassphraseBtn = document.getElementById("changePassphraseBtn");
 
-  if (signInBtn) signInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
+  const coolingDown = Date.now() < magicLinkCooldownUntil;
+  if (signInBtn) {
+    signInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
+    signInBtn.disabled = coolingDown;
+  }
   if (signOutBtn) signOutBtn.style.display = supabaseUser ? "block" : "none";
   if (emailInput) emailInput.style.display = supabaseUser ? "none" : "block";
   if (userEl) userEl.innerText = supabaseUser ? `Signed in as ${supabaseUser.email || supabaseUser.id}` : "";
   if (passphraseInput) {
     passphraseInput.disabled = !supabaseUser || encryptionUnlocked;
-    passphraseInput.style.display = supabaseUser && !encryptionUnlocked ? "block" : "none";
   }
   if (unlockBtn) {
     unlockBtn.disabled = !supabaseUser || encryptionUnlocked;
-    unlockBtn.style.display = supabaseUser && !encryptionUnlocked ? "block" : "none";
   }
+  if (openPromptBtn) {
+    openPromptBtn.style.display = supabaseUser && !encryptionUnlocked ? "block" : "none";
+  }
+  if (changePassphraseBtn) {
+    changePassphraseBtn.style.display = supabaseUser && encryptionUnlocked ? "block" : "none";
+  }
+}
+
+function startMagicLinkCooldown(seconds = 60) {
+  magicLinkCooldownUntil = Date.now() + seconds * 1000;
+  clearInterval(magicLinkCooldownTimer);
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((magicLinkCooldownUntil - Date.now()) / 1000));
+    const signInBtn = document.getElementById("supabaseSignInBtn");
+
+    if (signInBtn && !supabaseUser && !supabaseMagicLinkSent) {
+      signInBtn.disabled = remaining > 0;
+      signInBtn.innerText = remaining > 0 ? `Try Again in ${remaining}s` : "Send Magic Link";
+    }
+
+    if (remaining <= 0) {
+      clearInterval(magicLinkCooldownTimer);
+      magicLinkCooldownTimer = null;
+      updateSupabaseControls();
+    }
+  };
+
+  tick();
+  magicLinkCooldownTimer = setInterval(tick, 1000);
 }
 
 function resetSupabaseSyncState() {
@@ -1448,8 +1682,11 @@ function resetEncryptionState() {
   encryptionKey = null;
   encryptionSalt = "";
   encryptionUnlocked = false;
+  encryptionPromptDismissed = false;
   const passphraseInput = document.getElementById("encryptionPassphrase");
   if (passphraseInput) passphraseInput.value = "";
+  const modal = document.getElementById("encryptionModal");
+  if (modal) modal.style.display = "none";
   setEncryptionStatus(supabaseUser ? "Enter your passphrase to unlock encrypted data." : "Enter your passphrase after signing in.");
 }
 
@@ -1470,6 +1707,8 @@ function updateSupabaseConnectionState(connected, message) {
   if (!connected) {
     supabaseUser = null;
     supabaseMagicLinkSent = false;
+    magicLinkCooldownUntil = 0;
+    clearInterval(magicLinkCooldownTimer);
     resetSupabaseSyncState();
   }
   updateSupabaseControls();
@@ -1488,8 +1727,8 @@ async function connectSupabase() {
   try {
     supabaseClient = window.supabase.createClient(url, key, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
         detectSessionInUrl: true
       }
     });
@@ -1504,6 +1743,7 @@ async function connectSupabase() {
       resetEncryptionState();
       if (supabaseUser && supabaseConnected) {
         setSupabaseSyncStatus("Enter your encryption passphrase to load Supabase data.");
+        openEncryptionPrompt();
       } else {
         expenses = [];
         loans = [];
@@ -1520,6 +1760,7 @@ async function connectSupabase() {
     if (supabaseUser) {
       resetEncryptionState();
       setSupabaseSyncStatus("Enter your encryption passphrase to load Supabase data.");
+      openEncryptionPrompt();
     }
   } catch (error) {
     updateSupabaseConnectionState(false, `Supabase connection failed: ${error.message}`);
@@ -1554,6 +1795,7 @@ async function signInSupabase() {
 
   try {
     supabaseMagicLinkSent = true;
+    magicLinkCooldownUntil = 0;
     updateSupabaseControls();
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
@@ -1566,6 +1808,9 @@ async function signInSupabase() {
   } catch (error) {
     supabaseMagicLinkSent = false;
     updateSupabaseControls();
+    if (String(error.message || "").toLowerCase().includes("rate limit")) {
+      startMagicLinkCooldown(60);
+    }
     setSupabaseAuthStatus(`Supabase magic link failed: ${error.message}`);
   }
 }
@@ -1769,6 +2014,107 @@ async function saveEncryptedBackupData() {
   if (error) throw error;
 }
 
+async function exportEncryptedData() {
+  if (!encryptionUnlocked || !encryptionKey) {
+    alert("Unlock encrypted data before downloading an encrypted vault.");
+    return;
+  }
+
+  try {
+    const encryptedRow = await encryptBackupData(getBackupData());
+    const vault = {
+      version: 1,
+      algorithm: "AES-GCM",
+      keyDerivation: "PBKDF2-SHA256",
+      iterations: 250000,
+      salt: encryptedRow.salt,
+      iv: encryptedRow.iv,
+      ciphertext: encryptedRow.ciphertext,
+      exportedAt: encryptedRow.updated_at
+    };
+
+    downloadFile(
+      new Blob([JSON.stringify(vault, null, 2)], { type: "application/json" }),
+      "expense-encrypted-vault.json"
+    );
+  } catch (error) {
+    alert(`Encrypted export failed: ${error.message}`);
+  }
+}
+
+function openPassphraseChangePrompt() {
+  if (!encryptionUnlocked) {
+    setEncryptionStatus("Unlock encrypted data before changing the passphrase.");
+    return;
+  }
+
+  const modal = document.getElementById("passphraseChangeModal");
+  if (modal) modal.style.display = "block";
+  ["currentPassphrase", "newPassphrase", "confirmNewPassphrase"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+  setPassphraseChangeStatus("Re-encrypts your Supabase vault with the new passphrase.");
+}
+
+function closePassphraseChangePrompt() {
+  const modal = document.getElementById("passphraseChangeModal");
+  if (modal) modal.style.display = "none";
+}
+
+function setPassphraseChangeStatus(message) {
+  const status = document.getElementById("passphraseChangeStatus");
+  if (status) status.innerText = message;
+}
+
+async function changeEncryptionPassphrase() {
+  if (!encryptionUnlocked || !encryptionKey) {
+    setPassphraseChangeStatus("Unlock encrypted data before changing the passphrase.");
+    return;
+  }
+
+  const currentPassphrase = document.getElementById("currentPassphrase")?.value || "";
+  const newPassphrase = document.getElementById("newPassphrase")?.value || "";
+  const confirmNewPassphrase = document.getElementById("confirmNewPassphrase")?.value || "";
+
+  if (newPassphrase.length < 8) {
+    setPassphraseChangeStatus("Use at least 8 characters for the new passphrase.");
+    return;
+  }
+  if (newPassphrase !== confirmNewPassphrase) {
+    setPassphraseChangeStatus("New passphrase confirmation does not match.");
+    return;
+  }
+
+  const oldKey = encryptionKey;
+  const oldSalt = encryptionSalt;
+
+  try {
+    setPassphraseChangeStatus("Checking current passphrase...");
+    const encryptedRecord = await fetchEncryptedBackup();
+    if (encryptedRecord) {
+      const testKey = await deriveEncryptionKey(currentPassphrase, encryptedRecord.salt);
+      const previousKey = encryptionKey;
+      encryptionKey = testKey;
+      await decryptBackupData(encryptedRecord);
+      encryptionKey = previousKey;
+    }
+
+    setPassphraseChangeStatus("Re-encrypting vault...");
+    encryptionSalt = makeRandomBase64(16);
+    encryptionKey = await deriveEncryptionKey(newPassphrase, encryptionSalt);
+    await saveEncryptedBackupData();
+
+    setPassphraseChangeStatus("Passphrase changed.");
+    setEncryptionStatus("Encrypted data unlocked with the new passphrase.");
+    closePassphraseChangePrompt();
+  } catch (error) {
+    encryptionKey = oldKey;
+    encryptionSalt = oldSalt;
+    setPassphraseChangeStatus(`Passphrase change failed: ${error.message}`);
+  }
+}
+
 async function unlockEncryptedData() {
   const ready = await ensureSupabaseConnected();
   if (!ready || !supabaseUser) {
@@ -1819,12 +2165,17 @@ async function unlockEncryptedData() {
     syncLoanFriendsFromLoans();
     render();
     supabaseHasUnsyncedChanges = false;
+    encryptionPromptDismissed = false;
+    const modal = document.getElementById("encryptionModal");
+    if (modal) modal.style.display = "none";
     updateSupabaseControls();
+    updateSyncBanner();
   } catch (error) {
     encryptionKey = null;
     encryptionSalt = "";
     encryptionUnlocked = false;
     updateSupabaseControls();
+    updateSyncBanner();
     setEncryptionStatus(`Unlock failed: ${error.message}`);
     setSupabaseSyncStatus(`Encrypted data unlock failed: ${error.message}`);
   }
@@ -2014,8 +2365,35 @@ function deleteExpense(index) {
   if (!canWriteSupabaseData()) return;
 
   expenses.splice(index, 1);
+  if (editExpenseIndex === index) cancelExpenseEdit();
+  else if (editExpenseIndex > index) editExpenseIndex -= 1;
   render();
   noteLocalDataChanged();
+}
+
+function editExpense(index) {
+  if (!canWriteSupabaseData()) return;
+
+  const exp = expenses[index];
+  if (!exp) return;
+
+  editExpenseIndex = index;
+  dateEl.value = exp.date || "";
+  amountEl.value = exp.amount || "";
+  categoryInput.value = exp.category || "";
+  descEl.value = exp.desc || "";
+  toggleEl.checked = exp.type === "claim";
+  updateEditButtons();
+  activateTab("expenses");
+}
+
+function cancelExpenseEdit() {
+  editExpenseIndex = -1;
+  amountEl.value = "";
+  categoryInput.value = "";
+  descEl.value = "";
+  toggleEl.checked = false;
+  updateEditButtons();
 }
 
 function migrateLoanExpenses() {
@@ -2091,6 +2469,7 @@ window.onload = async function () {
   loanAmountEl = document.getElementById("loanAmount");
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
+  updateEditButtons();
   loadSupabaseSettings();
   updateSupabaseControls();
   setSupabaseAuthStatus("Connecting to Supabase...");
