@@ -9,52 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
-  import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBUwirnhvEWUudVlrD43xmd4z-frnecbU8",
-    authDomain: "expense-tracker-494021.firebaseapp.com",
-    projectId: "expense-tracker-494021",
-    storageBucket: "expense-tracker-494021.firebasestorage.app",
-    messagingSenderId: "221788457978",
-    appId: "1:221788457978:web:5ea78cd730b96ec1587243",
-    measurementId: "G-FZ8LW2ERV2"
-  };
-
-  const firebaseApp = initializeApp(firebaseConfig);
-  const firebaseAuth = getAuth(firebaseApp);
-  const firestoreDb = getFirestore(firebaseApp);
-
-  window.expenseFirebase = {
-    firebaseAuth,
-    firestoreDb,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut,
-    onAuthStateChanged,
-    doc,
-    getDoc,
-    setDoc,
-    serverTimestamp
-  };
-
-  window.dispatchEvent(new Event("expenseFirebaseReady"));
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -320,24 +275,28 @@ button.add {
   font-weight: bold;
 }
 
-.drive-box {
+.sync-box {
   background: white;
   padding: 12px;
   border-radius: 8px;
   margin-top: 20px;
 }
 
-.drive-box input {
+.sync-box input {
   margin-bottom: 8px;
 }
 
-.drive-actions {
+.supabase-setup {
+  display: none;
+}
+
+.sync-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
-.drive-status {
+.sync-status {
   margin-top: 8px;
   color: #475569;
   font-size: 12px;
@@ -345,7 +304,7 @@ button.add {
   overflow-wrap: anywhere;
 }
 
-.drive-note {
+.sync-note {
   margin-top: 6px;
   color: #64748b;
   font-size: 12px;
@@ -505,7 +464,7 @@ button.add {
     padding: 11px;
   }
 
-  .drive-actions {
+  .sync-actions {
     grid-template-columns: 1fr;
   }
 
@@ -536,7 +495,7 @@ button.add {
 
 <div class="header">Expense Tracker</div>
 <div id="syncBanner" class="sync-banner">
-  Auto sync is paused for this device. Open Data tab and choose Save Backup or Restore Backup.
+  Auto sync is paused for this device. Open Data tab and choose Save Backup or Restore Backup for Supabase.
 </div>
 
 <div class="tabs">
@@ -633,26 +592,34 @@ button.add {
   <h3 style="margin-top:20px;">Local Storage</h3>
   <button type="button" class="add" onclick="clearLocalData()">Clear Local Data</button>
 
-  <div class="drive-box">
-    <h3 style="margin-top:0;">Firebase Account</h3>
-    <button type="button" class="add" id="firebaseSignInBtn" onclick="signInFirebase()">Sign in with Google</button>
-    <button type="button" class="add" id="firebaseSignOutBtn" onclick="signOutFirebase()" style="display:none;margin-top:8px;">Sign Out</button>
-    <div id="firebaseUser" class="sync-user"></div>
-    <div id="firebaseStatus" class="drive-status">Firebase not connected</div>
-    <div class="drive-note">Used to identify each user for server-side Google Drive backup.</div>
+  <div class="sync-box supabase-setup" aria-hidden="true">
+    <h3 style="margin-top:0;">Supabase Setup</h3>
+    <input type="text" id="supabaseUrl" placeholder="Supabase Project URL">
+    <input type="text" id="supabaseKey" placeholder="Supabase Publishable Key">
+    <button type="button" class="add" onclick="connectSupabase()">Connect Supabase</button>
+    <div id="supabaseStatus" class="sync-status">Supabase not connected</div>
+    <div class="sync-note">Use the Project URL and publishable key from your Supabase project's Connect dialog or API Keys page.</div>
   </div>
 
-  <div class="drive-box">
-    <h3 style="margin-top:0;">Firebase Drive Sync</h3>
-    <input type="text" id="firebaseFunctionsBaseUrl" placeholder="Firebase Functions base URL">
-    <button type="button" class="add" id="firebaseDriveConnectBtn" onclick="connectFirebaseDrive()">Connect Drive Through Firebase</button>
-    <button type="button" class="add" id="firebaseDriveAutoSyncBtn" onclick="enableFirebaseDriveAutoSync()" style="display:none;margin-top:8px;">Auto Sync</button>
-    <div class="drive-actions" id="firebaseDriveDecisionActions" style="margin-top:8px;">
-      <button type="button" class="add" onclick="saveFirebaseDriveBackup()">Save Backup</button>
-      <button type="button" class="add" onclick="restoreFirebaseDriveBackup()">Restore Backup</button>
+  <div class="sync-box">
+    <h3 style="margin-top:0;">Supabase Account</h3>
+    <input type="email" id="supabaseEmail" placeholder="Email address" autocomplete="email">
+    <button type="button" class="add" id="supabaseSignInBtn" onclick="signInSupabase()">Send Magic Link</button>
+    <button type="button" class="add" id="supabaseSignOutBtn" onclick="signOutSupabase()" style="display:none;margin-top:8px;">Sign Out</button>
+    <div id="supabaseUser" class="sync-user"></div>
+    <div id="supabaseAuthStatus" class="sync-status">Not signed in</div>
+    <div class="sync-note">Supabase sends a one-time sign-in link to your email and identifies the current user for database access.</div>
+  </div>
+
+  <div class="sync-box">
+    <h3 style="margin-top:0;">Supabase Sync</h3>
+    <button type="button" class="add" id="supabaseAutoSyncBtn" onclick="enableSupabaseAutoSync()" style="display:none;">Auto Sync</button>
+    <div class="sync-actions" id="supabaseDecisionActions" style="margin-top:8px;">
+      <button type="button" class="add" onclick="saveSupabaseBackup()">Save Backup</button>
+      <button type="button" class="add" onclick="restoreSupabaseBackup()">Restore Backup</button>
     </div>
-    <div id="firebaseDriveStatus" class="drive-status">Firebase Drive sync not connected</div>
-    <div class="drive-note">Uses Firebase Functions to keep Google refresh tokens off the webpage.</div>
+    <div id="supabaseSyncStatus" class="sync-status">Supabase sync not connected</div>
+    <div class="sync-note">Saves your expenses, loans, and limits directly into Supabase tables for the signed-in user.</div>
   </div>
 
 </div>
@@ -733,18 +700,19 @@ let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
 let hasLocalBackup = false;
-let firebaseUser = null;
-let firebaseAuthUnsubscribe = null;
-let firebaseDriveConnected = localStorage.getItem("firebaseDriveConnected") === "true";
-let firebaseDriveSyncApproved = localStorage.getItem("firebaseDriveSyncApproved") === "true";
-let firebaseDriveHasUnsyncedChanges = false;
-let firebaseDriveAutoSyncEnabled = localStorage.getItem("firebaseDriveAutoSyncEnabled") === "true";
-let firebaseDriveAutoSyncTimer = null;
-let firebaseDriveSyncInProgress = false;
-let firebaseDriveSyncQueued = false;
+let supabaseClient = null;
+let supabaseUser = null;
+let supabaseConnected = false;
+let supabaseSyncApproved = localStorage.getItem("supabaseSyncApproved") === "true";
+let supabaseAutoSyncEnabled = localStorage.getItem("supabaseAutoSyncEnabled") === "true";
+let supabaseHasUnsyncedChanges = false;
+let supabaseSyncTimer = null;
+let supabaseSyncInProgress = false;
+let supabaseSyncQueued = false;
+const SUPABASE_DEFAULT_URL = "https://cwgcdcrhqyrrbdogeoud.supabase.co";
+const SUPABASE_DEFAULT_KEY = "sb_publishable_nxii-GFhfzaqD7y6V5S_mg_AIbufSjs";
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
-const defaultFirebaseFunctionsBaseUrl = "https://us-central1-expense-tracker-494021.cloudfunctions.net";
 
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
@@ -1408,13 +1376,18 @@ function exportExcelData() {
   downloadFile(blob, "expense-data.xlsx");
 }
 
-function setFirebaseStatus(message) {
-  const status = document.getElementById("firebaseStatus");
+function setSupabaseStatus(message) {
+  const status = document.getElementById("supabaseStatus");
   if (status) status.innerText = message;
 }
 
-function setFirebaseDriveStatus(message) {
-  const status = document.getElementById("firebaseDriveStatus");
+function setSupabaseAuthStatus(message) {
+  const status = document.getElementById("supabaseAuthStatus");
+  if (status) status.innerText = message;
+}
+
+function setSupabaseSyncStatus(message) {
+  const status = document.getElementById("supabaseSyncStatus");
   if (status) status.innerText = message;
 }
 
@@ -1422,382 +1395,408 @@ function updateSyncBanner() {
   const banner = document.getElementById("syncBanner");
   if (!banner) return;
 
-  const shouldShow = Boolean(firebaseUser && firebaseDriveConnected && !firebaseDriveSyncApproved);
+  const shouldShow = Boolean(supabaseUser && supabaseConnected && !supabaseSyncApproved);
   banner.style.display = shouldShow ? "block" : "none";
 }
 
-function updateFirebaseDriveControls() {
-  const connectBtn = document.getElementById("firebaseDriveConnectBtn");
-  const autoSyncBtn = document.getElementById("firebaseDriveAutoSyncBtn");
-  const decisionActions = document.getElementById("firebaseDriveDecisionActions");
+function updateSupabaseControls() {
+  const signInBtn = document.getElementById("supabaseSignInBtn");
+  const signOutBtn = document.getElementById("supabaseSignOutBtn");
+  const emailInput = document.getElementById("supabaseEmail");
+  const autoSyncBtn = document.getElementById("supabaseAutoSyncBtn");
+  const decisionActions = document.getElementById("supabaseDecisionActions");
+  const userEl = document.getElementById("supabaseUser");
 
-  if (connectBtn) {
-    connectBtn.style.display = firebaseDriveConnected ? "none" : "block";
-  }
+  if (signInBtn) signInBtn.style.display = supabaseUser ? "none" : "block";
+  if (signOutBtn) signOutBtn.style.display = supabaseUser ? "block" : "none";
+  if (emailInput) emailInput.style.display = supabaseUser ? "none" : "block";
+  if (userEl) userEl.innerText = supabaseUser ? `Signed in as ${supabaseUser.email || supabaseUser.id}` : "";
 
   if (autoSyncBtn) {
-    autoSyncBtn.style.display = firebaseDriveConnected && firebaseDriveSyncApproved ? "block" : "none";
-    autoSyncBtn.innerText = firebaseDriveAutoSyncEnabled ? "Auto Sync On" : "Auto Sync";
+    autoSyncBtn.style.display = supabaseConnected && supabaseSyncApproved && supabaseUser ? "block" : "none";
+    autoSyncBtn.innerText = supabaseAutoSyncEnabled ? "Auto Sync On" : "Auto Sync";
   }
 
   if (decisionActions) {
-    decisionActions.style.display = firebaseDriveConnected && !firebaseDriveSyncApproved ? "grid" : "none";
+    decisionActions.style.display = supabaseConnected && supabaseUser && !supabaseSyncApproved ? "grid" : "none";
   }
 }
 
-function markFirebaseDriveSyncPaused(message) {
-  firebaseDriveSyncApproved = false;
-  firebaseDriveAutoSyncEnabled = false;
-  localStorage.setItem("firebaseDriveSyncApproved", "false");
-  localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
-  firebaseDriveHasUnsyncedChanges = true;
+function markSupabaseSyncPaused(message) {
+  supabaseSyncApproved = false;
+  supabaseAutoSyncEnabled = false;
+  localStorage.setItem("supabaseSyncApproved", "false");
+  localStorage.setItem("supabaseAutoSyncEnabled", "false");
+  supabaseHasUnsyncedChanges = true;
   updateSyncBanner();
-  updateFirebaseDriveControls();
+  updateSupabaseControls();
 
   if (message) {
-    setFirebaseDriveStatus(message);
+    setSupabaseSyncStatus(message);
   }
 }
 
-function markFirebaseDriveSyncApproved(message) {
-  firebaseDriveConnected = true;
-  firebaseDriveSyncApproved = true;
-  firebaseDriveHasUnsyncedChanges = false;
-  localStorage.setItem("firebaseDriveConnected", "true");
-  localStorage.setItem("firebaseDriveSyncApproved", "true");
+function markSupabaseSyncApproved(message) {
+  supabaseConnected = true;
+  supabaseSyncApproved = true;
+  supabaseHasUnsyncedChanges = false;
+  localStorage.setItem("supabaseSyncApproved", "true");
   updateSyncBanner();
-  updateFirebaseDriveControls();
+  updateSupabaseControls();
 
   if (message) {
-    setFirebaseDriveStatus(message);
+    setSupabaseSyncStatus(message);
   }
 }
 
-function resetFirebaseDriveState() {
-  firebaseDriveConnected = false;
-  firebaseDriveSyncApproved = false;
-  firebaseDriveAutoSyncEnabled = false;
-  firebaseDriveHasUnsyncedChanges = false;
-  firebaseDriveSyncQueued = false;
-  clearTimeout(firebaseDriveAutoSyncTimer);
+function resetSupabaseSyncState() {
+  supabaseSyncApproved = false;
+  supabaseAutoSyncEnabled = false;
+  supabaseHasUnsyncedChanges = false;
+  supabaseSyncQueued = false;
+  clearTimeout(supabaseSyncTimer);
 
   [
-    "firebaseDriveConnected",
-    "firebaseDriveSyncApproved",
-    "firebaseDriveAutoSyncEnabled"
+    "supabaseSyncApproved",
+    "supabaseAutoSyncEnabled"
   ].forEach(key => localStorage.removeItem(key));
 
   updateSyncBanner();
-  updateFirebaseDriveControls();
+  updateSupabaseControls();
 }
 
-function updateFirebaseUser(user) {
-  firebaseUser = user || null;
+function saveSupabaseSettings() {
+  const url = document.getElementById("supabaseUrl")?.value.trim() || "";
+  const key = document.getElementById("supabaseKey")?.value.trim() || "";
+  localStorage.setItem("supabaseUrl", url);
+  localStorage.setItem("supabaseKey", key);
+}
 
-  const userEl = document.getElementById("firebaseUser");
-  const signInBtn = document.getElementById("firebaseSignInBtn");
-  const signOutBtn = document.getElementById("firebaseSignOutBtn");
+function loadSupabaseSettings() {
+  const urlEl = document.getElementById("supabaseUrl");
+  const keyEl = document.getElementById("supabaseKey");
+  if (urlEl) urlEl.value = localStorage.getItem("supabaseUrl") || SUPABASE_DEFAULT_URL;
+  if (keyEl) keyEl.value = localStorage.getItem("supabaseKey") || SUPABASE_DEFAULT_KEY;
+}
 
-  if (firebaseUser) {
-    if (userEl) userEl.innerText = `Signed in as ${firebaseUser.email || firebaseUser.displayName || firebaseUser.uid}`;
-    if (signInBtn) signInBtn.style.display = "none";
-    if (signOutBtn) signOutBtn.style.display = "block";
-    setFirebaseStatus("Firebase connected.");
-    if (firebaseDriveConnected && !firebaseDriveSyncApproved) {
-      setFirebaseDriveStatus("Auto sync is paused. Choose Save Backup or Restore Backup before this device syncs.");
-    }
-    updateSyncBanner();
-    updateFirebaseDriveControls();
-    saveFirebaseSyncProfile();
-    return;
+function updateSupabaseConnectionState(connected, message) {
+  supabaseConnected = connected;
+  setSupabaseStatus(message);
+  if (!connected) {
+    supabaseUser = null;
+    resetSupabaseSyncState();
   }
-
-  if (userEl) userEl.innerText = "";
-  if (signInBtn) signInBtn.style.display = "block";
-  if (signOutBtn) signOutBtn.style.display = "none";
-  setFirebaseStatus("Firebase not connected");
+  updateSupabaseControls();
   updateSyncBanner();
-  updateFirebaseDriveControls();
 }
 
-function initFirebaseAuth() {
-  const firebase = window.expenseFirebase;
+async function connectSupabase() {
+  const url = document.getElementById("supabaseUrl")?.value.trim();
+  const key = document.getElementById("supabaseKey")?.value.trim();
 
-  if (!firebase) {
-    setFirebaseStatus("Firebase is still loading...");
-    return;
-  }
-
-  if (firebaseAuthUnsubscribe) firebaseAuthUnsubscribe();
-  firebaseAuthUnsubscribe = firebase.onAuthStateChanged(firebase.firebaseAuth, updateFirebaseUser, error => {
-    setFirebaseStatus(`Firebase auth error: ${error.message}`);
-  });
-}
-
-async function signInFirebase() {
-  const firebase = window.expenseFirebase;
-
-  if (!firebase) {
-    setFirebaseStatus("Firebase is still loading. Please try again.");
+  if (!url || !key) {
+    setSupabaseStatus("Enter the Supabase Project URL and Publishable Key first.");
     return;
   }
 
   try {
-    const provider = new firebase.GoogleAuthProvider();
-    await firebase.signInWithPopup(firebase.firebaseAuth, provider);
-  } catch (error) {
-    setFirebaseStatus(`Firebase sign-in failed: ${error.message}`);
-  }
-}
-
-async function signOutFirebase() {
-  const firebase = window.expenseFirebase;
-
-  if (!firebase) {
-    setFirebaseStatus("Firebase is still loading. Please try again.");
-    return;
-  }
-
-  try {
-    setFirebaseStatus("Signing out and disconnecting Drive...");
-    if (firebase.firebaseAuth.currentUser) {
-      try {
-        await callFirebaseDriveFunction("disconnectDrive", { method: "POST" });
-        setFirebaseDriveStatus("Google Drive disconnected from Firebase.");
-      } catch (disconnectError) {
-        setFirebaseDriveStatus(`Drive disconnect failed: ${disconnectError.message}`);
+    supabaseClient = window.supabase.createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
       }
-    }
-
-    resetFirebaseDriveState();
-    await firebase.signOut(firebase.firebaseAuth);
+    });
+    saveSupabaseSettings();
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+    supabaseUser = data.session ? data.session.user : null;
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      supabaseUser = session ? session.user : null;
+      setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
+      if (supabaseUser && supabaseConnected && !supabaseSyncApproved) {
+        setSupabaseSyncStatus("Auto sync is paused. Choose Save Backup or Restore Backup before this device syncs.");
+      }
+      updateSupabaseControls();
+      updateSyncBanner();
+    });
+    updateSupabaseConnectionState(true, "Supabase connected.");
+    setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
   } catch (error) {
-    setFirebaseStatus(`Firebase sign-out failed: ${error.message}`);
+    updateSupabaseConnectionState(false, `Supabase connection failed: ${error.message}`);
   }
 }
 
-async function saveFirebaseSyncProfile() {
-  const firebase = window.expenseFirebase;
-  if (!firebase || !firebaseUser) return;
+async function ensureSupabaseConnected() {
+  if (supabaseClient && supabaseConnected) return true;
+
+  const savedUrl = localStorage.getItem("supabaseUrl") || SUPABASE_DEFAULT_URL;
+  const savedKey = localStorage.getItem("supabaseKey") || SUPABASE_DEFAULT_KEY;
+  if (!savedUrl || !savedKey) return false;
+
+  document.getElementById("supabaseUrl").value = savedUrl;
+  document.getElementById("supabaseKey").value = savedKey;
+  await connectSupabase();
+  return Boolean(supabaseClient && supabaseConnected);
+}
+
+async function signInSupabase() {
+  const ready = await ensureSupabaseConnected();
+  if (!ready) {
+    setSupabaseAuthStatus("Connect Supabase first.");
+    return;
+  }
+
+  const email = document.getElementById("supabaseEmail")?.value.trim();
+  if (!email) {
+    setSupabaseAuthStatus("Enter your email address first.");
+    return;
+  }
 
   try {
-    const profileRef = firebase.doc(firebase.firestoreDb, "users", firebaseUser.uid, "sync", "profile");
-    await firebase.setDoc(profileRef, {
-      email: firebaseUser.email || "",
-      displayName: firebaseUser.displayName || "",
-      lastSeenAt: firebase.serverTimestamp()
-    }, { merge: true });
+    const redirectTo = location.href.split("#")[0].split("?")[0];
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo
+      }
+    });
+    if (error) throw error;
+    setSupabaseAuthStatus("Magic link sent. Check your email to finish signing in.");
   } catch (error) {
-    setFirebaseStatus(`Firebase profile save failed: ${error.message}`);
+    setSupabaseAuthStatus(`Supabase magic link failed: ${error.message}`);
   }
 }
 
-function saveFirebaseDriveSettings() {
-  const baseUrl = document.getElementById("firebaseFunctionsBaseUrl")?.value.trim() || defaultFirebaseFunctionsBaseUrl;
-  localStorage.setItem("firebaseFunctionsBaseUrl", baseUrl);
+async function signOutSupabase() {
+  if (!supabaseClient) {
+    setSupabaseAuthStatus("Supabase is not connected.");
+    return;
+  }
+
+  try {
+    await supabaseClient.auth.signOut();
+    supabaseUser = null;
+    resetSupabaseSyncState();
+    setSupabaseAuthStatus("Not signed in");
+    setSupabaseSyncStatus("Supabase sync not connected");
+    updateSupabaseControls();
+  } catch (error) {
+    setSupabaseAuthStatus(`Supabase sign-out failed: ${error.message}`);
+  }
 }
 
-function loadFirebaseDriveSettings() {
-  const baseUrlEl = document.getElementById("firebaseFunctionsBaseUrl");
-  if (baseUrlEl) baseUrlEl.value = localStorage.getItem("firebaseFunctionsBaseUrl") || defaultFirebaseFunctionsBaseUrl;
+function mapExpenseRowToLocal(row) {
+  return {
+    id: row.id,
+    date: row.expense_date,
+    desc: row.description || "",
+    category: row.category,
+    type: row.expense_type,
+    amount: Number(row.amount)
+  };
 }
 
-function getFirebaseFunctionsBaseUrl() {
-  const baseUrl = document.getElementById("firebaseFunctionsBaseUrl")?.value.trim() || defaultFirebaseFunctionsBaseUrl;
-  return baseUrl.replace(/\/+$/, "");
+function mapLoanRowToLocal(row) {
+  return {
+    id: row.id,
+    date: row.loan_date,
+    friend: row.friend,
+    type: row.loan_type,
+    desc: row.notes || "",
+    amount: Number(row.amount)
+  };
+}
+
+function buildSupabaseExpenseRows() {
+  return expenses.map(exp => ({
+    user_id: supabaseUser.id,
+    expense_date: exp.date,
+    description: exp.desc || "",
+    category: exp.category,
+    expense_type: exp.type,
+    amount: Number(exp.amount)
+  }));
+}
+
+function buildSupabaseLoanRows() {
+  return loans.map(loan => ({
+    user_id: supabaseUser.id,
+    loan_date: loan.date,
+    friend: loan.friend,
+    loan_type: loan.type || "disbursed",
+    notes: loan.desc || "",
+    amount: Number(loan.amount)
+  }));
+}
+
+function buildSupabaseLimitRows() {
+  return Object.keys(limits).map(category => ({
+    user_id: supabaseUser.id,
+    category: category,
+    amount: Number(limits[category] || 0)
+  }));
+}
+
+async function replaceSupabaseTable(tableName, rows) {
+  const { error: deleteError } = await supabaseClient
+    .from(tableName)
+    .delete()
+    .eq("user_id", supabaseUser.id);
+
+  if (deleteError) throw deleteError;
+  if (!rows.length) return;
+
+  const { error: insertError } = await supabaseClient
+    .from(tableName)
+    .insert(rows);
+
+  if (insertError) throw insertError;
+}
+
+async function saveSupabaseBackup() {
+  const ready = await ensureSupabaseConnected();
+  if (!ready || !supabaseUser) {
+    setSupabaseSyncStatus("Connect Supabase and sign in first.");
+    return;
+  }
+
+  try {
+    setSupabaseSyncStatus("Saving to Supabase...");
+    await replaceSupabaseTable("expenses", buildSupabaseExpenseRows());
+    await replaceSupabaseTable("loans", buildSupabaseLoanRows());
+    await replaceSupabaseTable("limits", buildSupabaseLimitRows());
+    markSupabaseSyncApproved("Saved to Supabase.");
+  } catch (error) {
+    setSupabaseSyncStatus(`Supabase save failed: ${error.message}`);
+  }
+}
+
+async function autoSaveSupabaseBackup() {
+  if (!supabaseHasUnsyncedChanges || !supabaseAutoSyncEnabled || !supabaseSyncApproved || !supabaseUser) return;
+
+  if (supabaseSyncInProgress) {
+    supabaseSyncQueued = true;
+    return;
+  }
+
+  supabaseSyncInProgress = true;
+  setSupabaseSyncStatus("Auto syncing to Supabase...");
+
+  try {
+    await replaceSupabaseTable("expenses", buildSupabaseExpenseRows());
+    await replaceSupabaseTable("loans", buildSupabaseLoanRows());
+    await replaceSupabaseTable("limits", buildSupabaseLimitRows());
+    supabaseHasUnsyncedChanges = false;
+    setSupabaseSyncStatus("Auto synced to Supabase.");
+  } catch (error) {
+    supabaseAutoSyncEnabled = false;
+    localStorage.setItem("supabaseAutoSyncEnabled", "false");
+    updateSupabaseControls();
+    setSupabaseSyncStatus(`Supabase auto sync failed: ${error.message}`);
+  } finally {
+    supabaseSyncInProgress = false;
+
+    if (supabaseSyncQueued) {
+      supabaseSyncQueued = false;
+      scheduleSupabaseAutoSync();
+    }
+  }
+}
+
+async function restoreSupabaseBackup() {
+  const ready = await ensureSupabaseConnected();
+  if (!ready || !supabaseUser) {
+    setSupabaseSyncStatus("Connect Supabase and sign in first.");
+    return;
+  }
+
+  try {
+    setSupabaseSyncStatus("Restoring from Supabase...");
+
+    const [expensesResult, loansResult, limitsResult] = await Promise.all([
+      supabaseClient.from("expenses").select("*").order("expense_date", { ascending: false }),
+      supabaseClient.from("loans").select("*").order("loan_date", { ascending: false }),
+      supabaseClient.from("limits").select("*")
+    ]);
+
+    if (expensesResult.error) throw expensesResult.error;
+    if (loansResult.error) throw loansResult.error;
+    if (limitsResult.error) throw limitsResult.error;
+
+    expenses = (expensesResult.data || []).map(mapExpenseRowToLocal);
+    loans = (loansResult.data || []).map(mapLoanRowToLocal);
+    loanFriends = [];
+    syncLoanFriendsFromLoans();
+    limits = {};
+    (limitsResult.data || []).forEach(item => {
+      limits[item.category] = Number(item.amount);
+    });
+
+    render();
+    markSupabaseSyncApproved("Restored from Supabase.");
+  } catch (error) {
+    setSupabaseSyncStatus(`Supabase restore failed: ${error.message}`);
+  }
+}
+
+async function enableSupabaseAutoSync() {
+  if (!supabaseConnected || !supabaseSyncApproved || !supabaseUser) {
+    setSupabaseSyncStatus("Choose Save Backup or Restore Backup before enabling auto sync on this device.");
+    return;
+  }
+
+  supabaseAutoSyncEnabled = true;
+  localStorage.setItem("supabaseAutoSyncEnabled", "true");
+  updateSupabaseControls();
+
+  if (supabaseHasUnsyncedChanges) {
+    await autoSaveSupabaseBackup();
+    return;
+  }
+
+  setSupabaseSyncStatus("Auto sync is on for this device.");
 }
 
 function noteLocalDataChanged() {
-  if (!firebaseDriveConnected || !firebaseUser) return;
+  if (!supabaseConnected || !supabaseUser) return;
 
-  if (firebaseDriveSyncApproved && firebaseDriveAutoSyncEnabled) {
-    scheduleFirebaseDriveAutoSync();
+  if (supabaseSyncApproved && supabaseAutoSyncEnabled) {
+    scheduleSupabaseAutoSync();
     return;
   }
 
-  if (firebaseDriveSyncApproved && !firebaseDriveAutoSyncEnabled) {
-    firebaseDriveHasUnsyncedChanges = true;
-    setFirebaseDriveStatus("Local changes are saved on this device. Press Auto Sync to back them up to Google Drive.");
+  if (supabaseSyncApproved && !supabaseAutoSyncEnabled) {
+    supabaseHasUnsyncedChanges = true;
+    setSupabaseSyncStatus("Local changes are saved on this device. Press Auto Sync to back them up to Supabase.");
     return;
   }
 
-  if (!firebaseDriveSyncApproved) {
-    markFirebaseDriveSyncPaused("Local changes are saved on this device. Firebase Drive auto sync is paused until you choose Save Backup or Restore Backup.");
+  if (!supabaseSyncApproved) {
+    markSupabaseSyncPaused("Local changes are saved on this device. Supabase auto sync is paused until you choose Save Backup or Restore Backup.");
   }
 }
 
-function scheduleFirebaseDriveAutoSync() {
-  if (!firebaseDriveConnected || !firebaseDriveSyncApproved || !firebaseDriveAutoSyncEnabled || !firebaseUser) return;
+function scheduleSupabaseAutoSync() {
+  if (!supabaseConnected || !supabaseSyncApproved || !supabaseAutoSyncEnabled || !supabaseUser) return;
 
-  firebaseDriveHasUnsyncedChanges = true;
-  clearTimeout(firebaseDriveAutoSyncTimer);
-  setFirebaseDriveStatus("Local changes saved. Firebase Drive will sync in a moment.");
+  supabaseHasUnsyncedChanges = true;
+  clearTimeout(supabaseSyncTimer);
+  setSupabaseSyncStatus("Local changes saved. Supabase will sync in a moment.");
 
-  firebaseDriveAutoSyncTimer = setTimeout(() => {
-    autoSaveFirebaseDriveBackup();
+  supabaseSyncTimer = setTimeout(() => {
+    autoSaveSupabaseBackup();
   }, 2000);
 }
+function flushSupabaseSync() {
+  if (!supabaseHasUnsyncedChanges || !supabaseAutoSyncEnabled || !supabaseSyncApproved) return;
 
-async function getFirebaseIdToken() {
-  const firebase = window.expenseFirebase;
-
-  if (!firebase || !firebase.firebaseAuth.currentUser) {
-    throw new Error("Sign in with Firebase first.");
-  }
-
-  return firebase.firebaseAuth.currentUser.getIdToken();
-}
-
-async function callFirebaseDriveFunction(functionName, options = {}) {
-  saveFirebaseDriveSettings();
-
-  const token = await getFirebaseIdToken();
-  const headers = {
-    Authorization: `Bearer ${token}`
-  };
-
-  if (options.body) headers["Content-Type"] = "application/json";
-
-  const response = await fetch(`${getFirebaseFunctionsBaseUrl()}/${functionName}`, {
-    method: options.method || "GET",
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : { error: await response.text() };
-
-  if (!response.ok) {
-    throw new Error(data.error || "Firebase Drive request failed.");
-  }
-
-  return data;
-}
-
-async function connectFirebaseDrive() {
-  try {
-    const returnUrl = `${location.origin}${location.pathname}`;
-    const data = await callFirebaseDriveFunction("startDriveAuth", {
-      method: "POST",
-      body: { returnUrl }
-    });
-
-    setFirebaseDriveStatus("Opening Google Drive permission screen...");
-    location.href = data.authUrl;
-  } catch (error) {
-    setFirebaseDriveStatus(`Firebase Drive connection failed: ${error.message}`);
-  }
-}
-
-async function saveFirebaseDriveBackup() {
-  try {
-    setFirebaseDriveStatus("Saving backup through Firebase...");
-    const data = await callFirebaseDriveFunction("saveDriveBackup", {
-      method: "POST",
-      body: { backup: getBackupData() }
-    });
-
-    markFirebaseDriveSyncApproved(`Saved to user's Google Drive. File ID: ${data.backupFileId}`);
-  } catch (error) {
-    setFirebaseDriveStatus(`Firebase Drive backup failed: ${error.message}`);
-  }
-}
-
-async function autoSaveFirebaseDriveBackup() {
-  if (!firebaseDriveHasUnsyncedChanges || !firebaseDriveAutoSyncEnabled || !firebaseDriveSyncApproved) return;
-
-  if (firebaseDriveSyncInProgress) {
-    firebaseDriveSyncQueued = true;
-    return;
-  }
-
-  firebaseDriveSyncInProgress = true;
-  setFirebaseDriveStatus("Auto syncing to Google Drive...");
-
-  try {
-    const data = await callFirebaseDriveFunction("saveDriveBackup", {
-      method: "POST",
-      body: { backup: getBackupData() }
-    });
-
-    firebaseDriveHasUnsyncedChanges = false;
-    setFirebaseDriveStatus(`Auto synced to user's Google Drive. File ID: ${data.backupFileId}`);
-  } catch (error) {
-    firebaseDriveAutoSyncEnabled = false;
-    localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
-    updateFirebaseDriveControls();
-    setFirebaseDriveStatus(`Firebase Drive auto sync failed: ${error.message}`);
-  } finally {
-    firebaseDriveSyncInProgress = false;
-
-    if (firebaseDriveSyncQueued) {
-      firebaseDriveSyncQueued = false;
-      scheduleFirebaseDriveAutoSync();
-    }
-  }
-}
-
-async function enableFirebaseDriveAutoSync() {
-  if (!firebaseDriveConnected || !firebaseDriveSyncApproved) {
-    setFirebaseDriveStatus("Choose Save Backup or Restore Backup before enabling auto sync on this device.");
-    return;
-  }
-
-  firebaseDriveAutoSyncEnabled = true;
-  localStorage.setItem("firebaseDriveAutoSyncEnabled", "true");
-  updateFirebaseDriveControls();
-
-  if (firebaseDriveHasUnsyncedChanges) {
-    await autoSaveFirebaseDriveBackup();
-    return;
-  }
-
-  setFirebaseDriveStatus("Auto sync is on for this device.");
-}
-
-async function restoreFirebaseDriveBackup() {
-  try {
-    setFirebaseDriveStatus("Restoring backup through Firebase...");
-    const data = await callFirebaseDriveFunction("loadDriveBackup");
-
-    applyBackupData(data.backup || {});
-    markFirebaseDriveSyncApproved(`Restored from user's Google Drive. File ID: ${data.backupFileId}`);
-  } catch (error) {
-    setFirebaseDriveStatus(`Firebase Drive restore failed: ${error.message}`);
-  }
-}
-
-function handleFirebaseDriveRedirectStatus() {
-  const params = new URLSearchParams(location.search);
-
-  if (params.get("driveConnected") === "1") {
-    firebaseDriveConnected = true;
-    firebaseDriveSyncApproved = false;
-    firebaseDriveAutoSyncEnabled = false;
-    localStorage.setItem("firebaseDriveConnected", "true");
-    localStorage.setItem("firebaseDriveSyncApproved", "false");
-    localStorage.setItem("firebaseDriveAutoSyncEnabled", "false");
-    setFirebaseDriveStatus("Google Drive connected through Firebase. Auto sync is paused until you choose Save Backup or Restore Backup.");
-    updateSyncBanner();
-    updateFirebaseDriveControls();
-  }
-
-  if (params.get("driveError")) {
-    setFirebaseDriveStatus(`Google Drive connection failed: ${params.get("driveError")}`);
-  }
-}
-
-function flushFirebaseDriveSync() {
-  if (!firebaseDriveHasUnsyncedChanges || !firebaseDriveAutoSyncEnabled || !firebaseDriveSyncApproved) return;
-
-  clearTimeout(firebaseDriveAutoSyncTimer);
-  autoSaveFirebaseDriveBackup();
+  clearTimeout(supabaseSyncTimer);
+  autoSaveSupabaseBackup();
 }
 
 function clearLocalData() {
-  const confirmed = confirm("Clear local data from this browser? Google Drive backups will not be deleted.");
+  const confirmed = confirm("Clear local data from this browser?");
   if (!confirmed) return;
 
   [
@@ -1805,9 +1804,8 @@ function clearLocalData() {
     "loans",
     "loanFriends",
     "limits",
-    "firebaseDriveConnected",
-    "firebaseDriveSyncApproved",
-    "firebaseDriveAutoSyncEnabled"
+    "supabaseSyncApproved",
+    "supabaseAutoSyncEnabled"
   ].forEach(key => localStorage.removeItem(key));
 
   expenses = [];
@@ -1815,11 +1813,11 @@ function clearLocalData() {
   loanFriends = [];
   limits = {};
   hasLocalBackup = false;
-  resetFirebaseDriveState();
+  resetSupabaseSyncState();
 
   render(false);
   renderAnalytics();
-  setFirebaseDriveStatus("Local data cleared on this device. Firebase Drive sync was reset.");
+  setSupabaseSyncStatus("Local data cleared on this device. Supabase sync was reset.");
 }
 
 function importData() {
@@ -1932,17 +1930,15 @@ let loanDateEl, loanFriendEl, loanAmountEl, loanTypeEl, loanDescEl;
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
-    flushFirebaseDriveSync();
+    flushSupabaseSync();
   }
 });
 
 window.addEventListener("beforeunload", () => {
-  flushFirebaseDriveSync();
+  flushSupabaseSync();
 });
 
-window.addEventListener("expenseFirebaseReady", initFirebaseAuth);
-
-window.onload = function () {
+window.onload = async function () {
 const savedExpenses = localStorage.getItem("expenses");
 const savedLoans = localStorage.getItem("loans");
 const savedLoanFriends = localStorage.getItem("loanFriends");
@@ -1990,10 +1986,10 @@ else {
   loanAmountEl = document.getElementById("loanAmount");
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
-  loadFirebaseDriveSettings();
-  updateFirebaseDriveControls();
-  initFirebaseAuth();
-  handleFirebaseDriveRedirectStatus();
+  loadSupabaseSettings();
+  updateSupabaseControls();
+  setSupabaseAuthStatus("Connecting to Supabase...");
+  await ensureSupabaseConnected();
   
   
   flatpickr("#dateRangeAnalytics", {
