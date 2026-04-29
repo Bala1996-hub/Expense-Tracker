@@ -711,6 +711,7 @@ let supabaseSyncInProgress = false;
 let supabaseSyncQueued = false;
 const SUPABASE_DEFAULT_URL = "https://cwgcdcrhqyrrbdogeoud.supabase.co";
 const SUPABASE_DEFAULT_KEY = "sb_publishable_nxii-GFhfzaqD7y6V5S_mg_AIbufSjs";
+const SUPABASE_REDIRECT_URL = "https://bala1996-hub.github.io/Expense-Tracker/";
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
 
@@ -1554,11 +1555,10 @@ async function signInSupabase() {
   }
 
   try {
-    const redirectTo = location.href.split("#")[0].split("?")[0];
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: redirectTo
+        emailRedirectTo: SUPABASE_REDIRECT_URL
       }
     });
     if (error) throw error;
