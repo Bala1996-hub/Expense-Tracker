@@ -37,10 +37,34 @@ create table if not exists public.encrypted_backups (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.encrypted_monthly_backups (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  chunk_key text not null,
+  salt text not null,
+  iv text not null,
+  ciphertext text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, chunk_key)
+);
+
+create table if not exists public.encryption_key_wrappers (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  version integer not null default 2,
+  password_salt text not null,
+  password_iv text not null,
+  password_wrapped_key text not null,
+  recovery_salt text not null,
+  recovery_iv text not null,
+  recovery_wrapped_key text not null,
+  updated_at timestamptz not null default now()
+);
+
 alter table public.expenses enable row level security;
 alter table public.loans enable row level security;
 alter table public.limits enable row level security;
 alter table public.encrypted_backups enable row level security;
+alter table public.encrypted_monthly_backups enable row level security;
+alter table public.encryption_key_wrappers enable row level security;
 
 drop policy if exists "Users can read their own expenses" on public.expenses;
 create policy "Users can read their own expenses"
@@ -154,6 +178,64 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can delete their own encrypted backups" on public.encrypted_backups;
 create policy "Users can delete their own encrypted backups"
 on public.encrypted_backups
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their own encrypted monthly backups" on public.encrypted_monthly_backups;
+create policy "Users can read their own encrypted monthly backups"
+on public.encrypted_monthly_backups
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own encrypted monthly backups" on public.encrypted_monthly_backups;
+create policy "Users can insert their own encrypted monthly backups"
+on public.encrypted_monthly_backups
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own encrypted monthly backups" on public.encrypted_monthly_backups;
+create policy "Users can update their own encrypted monthly backups"
+on public.encrypted_monthly_backups
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own encrypted monthly backups" on public.encrypted_monthly_backups;
+create policy "Users can delete their own encrypted monthly backups"
+on public.encrypted_monthly_backups
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their own encryption key wrappers" on public.encryption_key_wrappers;
+create policy "Users can read their own encryption key wrappers"
+on public.encryption_key_wrappers
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own encryption key wrappers" on public.encryption_key_wrappers;
+create policy "Users can insert their own encryption key wrappers"
+on public.encryption_key_wrappers
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own encryption key wrappers" on public.encryption_key_wrappers;
+create policy "Users can update their own encryption key wrappers"
+on public.encryption_key_wrappers
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own encryption key wrappers" on public.encryption_key_wrappers;
+create policy "Users can delete their own encryption key wrappers"
+on public.encryption_key_wrappers
 for delete
 to authenticated
 using (auth.uid() = user_id);
