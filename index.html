@@ -2042,6 +2042,47 @@ function updateSupabaseConnectionState(connected, message) {
   updateSyncBanner();
 }
 
+function withTimeout(promise, timeoutMs, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), timeoutMs);
+    })
+  ]);
+}
+
+async function applySupabaseSession(session) {
+  supabaseUser = session ? session.user : null;
+  if (supabaseUser?.email) {
+    const emailInput = document.getElementById("supabaseEmail");
+    if (emailInput) emailInput.value = supabaseUser.email;
+  }
+  if (supabaseUser) supabaseMagicLinkSent = false;
+
+  setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
+  resetEncryptionState();
+  updateSupabaseControls();
+  updateSyncBanner();
+
+  if (supabaseUser && supabaseConnected) {
+    setSupabaseSyncStatus("Unlock encryption to load Supabase data.");
+    await autoUnlockEncryptedData();
+    return;
+  }
+
+  currentEncryptionPassphrase = "";
+  fillEncryptionPasswordInputs("");
+  syncRememberCheckboxes(false);
+  expenses = [];
+  loans = [];
+  loanFriends = [];
+  limits = {};
+  render();
+  setSupabaseSyncStatus("Sign in and unlock encryption to load Supabase data.");
+  updateSupabaseControls();
+  updateSyncBanner();
+}
+
 async function connectSupabase() {
   const url = document.getElementById("supabaseUrl")?.value.trim();
   const key = document.getElementById("supabaseKey")?.value.trim();
@@ -2060,48 +2101,27 @@ async function connectSupabase() {
       }
     });
     saveSupabaseSettings();
-    const { data, error } = await supabaseClient.auth.getSession();
+    const { data, error } = await withTimeout(
+      supabaseClient.auth.getSession(),
+      10000,
+      "Supabase session check timed out. Check your internet connection and refresh the page."
+    );
     if (error) throw error;
-    supabaseUser = data.session ? data.session.user : null;
-    if (supabaseUser?.email) {
-      const emailInput = document.getElementById("supabaseEmail");
-      if (emailInput) emailInput.value = supabaseUser.email;
-    }
-    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-      supabaseUser = session ? session.user : null;
-      if (supabaseUser?.email) {
-        const emailInput = document.getElementById("supabaseEmail");
-        if (emailInput) emailInput.value = supabaseUser.email;
-      }
-      if (supabaseUser) supabaseMagicLinkSent = false;
-      setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
-      resetEncryptionState();
-      if (supabaseUser && supabaseConnected) {
-        setSupabaseSyncStatus("Unlock encryption to load Supabase data.");
-        await autoUnlockEncryptedData();
-      } else {
-        currentEncryptionPassphrase = "";
-        fillEncryptionPasswordInputs("");
-        syncRememberCheckboxes(false);
-        expenses = [];
-        loans = [];
-        loanFriends = [];
-        limits = {};
-        render();
-        setSupabaseSyncStatus("Sign in and unlock encryption to load Supabase data.");
-      }
-      updateSupabaseControls();
-      updateSyncBanner();
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      setTimeout(() => {
+        applySupabaseSession(session).catch(error => {
+          setSupabaseAuthStatus(`Supabase session update failed: ${error.message}`);
+          setSupabaseSyncStatus(`Supabase session update failed: ${error.message}`);
+          updateSupabaseControls();
+          updateSyncBanner();
+        });
+      }, 0);
     });
     updateSupabaseConnectionState(true, "Supabase connected.");
-    setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
-    if (supabaseUser) {
-      resetEncryptionState();
-      setSupabaseSyncStatus("Unlock encryption to load Supabase data.");
-      await autoUnlockEncryptedData();
-    }
+    await applySupabaseSession(data.session);
   } catch (error) {
     updateSupabaseConnectionState(false, `Supabase connection failed: ${error.message}`);
+    setSupabaseAuthStatus("Supabase connection failed.");
   }
 }
 
