@@ -879,6 +879,7 @@ let toDate = null;
 let supabaseClient = null;
 let supabaseUser = null;
 let supabaseConnected = false;
+let supabaseAuthSubscription = null;
 let supabaseHasUnsyncedChanges = false;
 let supabaseSyncTimer = null;
 let supabaseSyncInProgress = false;
@@ -2093,32 +2094,54 @@ async function connectSupabase() {
   }
 
   try {
-    supabaseClient = window.supabase.createClient(url, key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      }
-    });
+    if (!window.supabase?.createClient) {
+      throw new Error("Supabase library did not load. Check your internet connection and refresh the page.");
+    }
+
+    if (!supabaseClient) {
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+    }
+
     saveSupabaseSettings();
-    const { data, error } = await withTimeout(
-      supabaseClient.auth.getSession(),
-      10000,
-      "Supabase session check timed out. Check your internet connection and refresh the page."
-    );
-    if (error) throw error;
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setTimeout(() => {
-        applySupabaseSession(session).catch(error => {
-          setSupabaseAuthStatus(`Supabase session update failed: ${error.message}`);
-          setSupabaseSyncStatus(`Supabase session update failed: ${error.message}`);
-          updateSupabaseControls();
-          updateSyncBanner();
-        });
-      }, 0);
-    });
     updateSupabaseConnectionState(true, "Supabase connected.");
-    await applySupabaseSession(data.session);
+
+    if (!supabaseAuthSubscription) {
+      const { data: authListener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+        setTimeout(() => {
+          applySupabaseSession(session).catch(error => {
+            setSupabaseAuthStatus(`Supabase session update failed: ${error.message}`);
+            setSupabaseSyncStatus(`Supabase session update failed: ${error.message}`);
+            updateSupabaseControls();
+            updateSyncBanner();
+          });
+        }, 0);
+      });
+      supabaseAuthSubscription = authListener?.subscription || true;
+    }
+
+    try {
+      const { data, error } = await withTimeout(
+        supabaseClient.auth.getSession(),
+        20000,
+        "Supabase session check timed out. You can still sign in again."
+      );
+      if (error) throw error;
+      await applySupabaseSession(data.session);
+    } catch (sessionError) {
+      supabaseUser = null;
+      supabaseMagicLinkSent = false;
+      resetEncryptionState();
+      setSupabaseAuthStatus(sessionError.message);
+      setSupabaseSyncStatus("Supabase is connected, but the saved session could not be restored. Sign in again if needed.");
+      updateSupabaseControls();
+      updateSyncBanner();
+    }
   } catch (error) {
     updateSupabaseConnectionState(false, `Supabase connection failed: ${error.message}`);
     setSupabaseAuthStatus("Supabase connection failed.");
