@@ -715,10 +715,11 @@ button.add {
         <span>Remember me</span>
       </label>
       <button type="button" class="add" id="supabaseSignInBtn" onclick="signInSupabase()">Sign In</button>
+      <button type="button" class="add" id="supabaseGoogleSignInBtn" onclick="signInWithGoogle()" style="margin-top:8px;">Sign In with Google</button>
       <button type="button" class="add" id="supabaseSignOutBtn" onclick="signOutSupabase()" style="display:none;margin-top:8px;">Sign Out</button>
       <div id="supabaseUser" class="sync-user"></div>
       <div id="supabaseAuthStatus" class="sync-status">Not signed in</div>
-      <div class="sync-note">The sign-in email verifies your account. The password is used only on this page as your encryption key.</div>
+      <div class="sync-note">Email or Google verifies your account. The password is used only on this page as your encryption key.</div>
     </div>
 
     <div class="sync-box">
@@ -905,6 +906,8 @@ const ENCRYPTED_MONTHLY_TABLE = "encrypted_monthly_backups";
 const KEY_WRAPPER_TABLE = "encryption_key_wrappers";
 const SETTINGS_CHUNK_KEY = "settings";
 const REMEMBERED_PHRASE_PREFIX = "expenseTrackerEncryptionPhrase:";
+const PENDING_OAUTH_PHRASE_KEY = "expenseTrackerPendingOAuthPhrase";
+const PENDING_OAUTH_REMEMBER_KEY = "expenseTrackerPendingOAuthRemember";
 const WRAPPED_KEY_SALT = "wrapped-key-v2";
 let loadedMonthKeys = new Set();
 
@@ -1815,6 +1818,40 @@ function forgetRememberedEncryptionPhrase(email) {
   }
 }
 
+function savePendingOAuthPhrase(passphrase, remember) {
+  try {
+    sessionStorage.setItem(PENDING_OAUTH_PHRASE_KEY, passphrase);
+    sessionStorage.setItem(PENDING_OAUTH_REMEMBER_KEY, remember ? "1" : "0");
+  } catch (_error) {
+    // If session storage is blocked, Google sign-in still works but unlock needs manual password entry.
+  }
+}
+
+function consumePendingOAuthPhrase(email) {
+  let passphrase = "";
+  let remember = false;
+
+  try {
+    passphrase = sessionStorage.getItem(PENDING_OAUTH_PHRASE_KEY) || "";
+    remember = sessionStorage.getItem(PENDING_OAUTH_REMEMBER_KEY) === "1";
+    sessionStorage.removeItem(PENDING_OAUTH_PHRASE_KEY);
+    sessionStorage.removeItem(PENDING_OAUTH_REMEMBER_KEY);
+  } catch (_error) {
+    return "";
+  }
+
+  if (!passphrase) return "";
+
+  currentEncryptionPassphrase = passphrase;
+  fillEncryptionPasswordInputs(passphrase);
+  syncRememberCheckboxes(remember);
+  if (remember) {
+    rememberEncryptionPhrase(email, passphrase);
+  }
+
+  return passphrase;
+}
+
 function syncRememberCheckboxes(checked) {
   const signInRemember = document.getElementById("supabaseRememberPhrase");
   const modalRemember = document.getElementById("modalRememberPhrase");
@@ -1857,6 +1894,13 @@ function loadRememberedPhraseForEnteredEmail() {
 
 async function autoUnlockEncryptedData() {
   if (!supabaseUser || encryptionUnlocked) return;
+
+  const pendingOAuthPhrase = consumePendingOAuthPhrase(supabaseUser.email);
+  if (pendingOAuthPhrase) {
+    setEncryptionStatus("Unlocking encrypted data after Google sign-in...");
+    await unlockEncryptedData({ automatic: true });
+    return;
+  }
 
   const rememberedPhrase = getRememberedEncryptionPhrase(supabaseUser.email);
   if (rememberedPhrase) {
@@ -1942,6 +1986,7 @@ function downloadRecoveryKey() {
 
 function updateSupabaseControls() {
   const signInBtn = document.getElementById("supabaseSignInBtn");
+  const googleSignInBtn = document.getElementById("supabaseGoogleSignInBtn");
   const signOutBtn = document.getElementById("supabaseSignOutBtn");
   const emailInput = document.getElementById("supabaseEmail");
   const passwordInput = document.getElementById("supabaseEncryptionPassword");
@@ -1954,6 +1999,10 @@ function updateSupabaseControls() {
   if (signInBtn) {
     signInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
     signInBtn.disabled = coolingDown;
+  }
+  if (googleSignInBtn) {
+    googleSignInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
+    googleSignInBtn.disabled = coolingDown;
   }
   if (signOutBtn) signOutBtn.style.display = supabaseUser ? "block" : "none";
   if (emailInput) emailInput.style.display = supabaseUser ? "none" : "block";
@@ -2209,6 +2258,43 @@ async function signInSupabase() {
       startMagicLinkCooldown(60);
     }
     setSupabaseAuthStatus(`Supabase sign-in failed: ${error.message}`);
+  }
+}
+
+async function signInWithGoogle() {
+  const ready = await ensureSupabaseConnected();
+  if (!ready) {
+    setSupabaseAuthStatus("Connect Supabase first.");
+    return;
+  }
+
+  const passphrase = document.getElementById("supabaseEncryptionPassword")?.value || "";
+  if (!passphrase) {
+    setSupabaseAuthStatus("Enter your password first.");
+    setEncryptionStatus("The password is required because it unlocks encrypted data after Google sign-in.");
+    return;
+  }
+
+  try {
+    currentEncryptionPassphrase = passphrase;
+    fillEncryptionPasswordInputs(passphrase);
+    syncRememberCheckboxes(getRememberPreference());
+    savePendingOAuthPhrase(passphrase, getRememberPreference());
+
+    supabaseMagicLinkSent = true;
+    updateSupabaseControls();
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: SUPABASE_REDIRECT_URL
+      }
+    });
+    if (error) throw error;
+    setSupabaseAuthStatus("Opening Google sign-in...");
+  } catch (error) {
+    supabaseMagicLinkSent = false;
+    updateSupabaseControls();
+    setSupabaseAuthStatus(`Google sign-in failed: ${error.message}`);
   }
 }
 
