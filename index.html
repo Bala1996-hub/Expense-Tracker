@@ -24,8 +24,28 @@ body {
   background: #007bff;
   color: white;
   padding: 14px;
-  text-align: center;
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.currency-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.currency-control select {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: white;
+  color: #111827;
+  font-size: 12px;
 }
 
 .tabs {
@@ -155,21 +175,30 @@ body {
 }
 
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(120px, 1fr) 92px;
   gap: 8px;
   margin-bottom: 10px;
+  align-items: stretch;
 }
-.row input { flex: 1; min-width: 0; }
 
-input {
+input,
+.bottom-card select {
   width: 100%;
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ccc;
   font-size: 16px;
+  min-width: 0;
+  height: 42px;
+  background: white;
 }
 
 .category-box { position: relative; }
+
+.form-field {
+  margin-bottom: 10px;
+}
 
 .suggestions {
   position: absolute;
@@ -248,19 +277,31 @@ button.add {
   margin-bottom: 8px;
 }
 
-.loan-form select {
-  width: 100%;
+.loan-form > select {
   margin-bottom: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  background: white;
-  font-size: 16px;
 }
 
 .loan-total {
   margin-bottom: 10px;
   font-weight: bold;
+}
+
+.rate-row {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  color: #334155;
+  font-weight: bold;
+}
+
+.rate-row input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .analytics-switch {
@@ -335,6 +376,9 @@ button.add {
 @media (max-width: 430px) {
   .header {
     padding: 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .tabs button {
@@ -392,12 +436,16 @@ button.add {
   }
 
   .row {
+    grid-template-columns: 1fr 1fr 78px;
     gap: 6px;
     margin-bottom: 8px;
   }
 
-  input {
+  input,
+  .bottom-card select {
     padding: 9px;
+    height: 40px;
+    font-size: 15px;
   }
 
   .toggle {
@@ -434,7 +482,16 @@ button.add {
 
 <body>
 
-<div class="header">Expense Tracker</div>
+<div class="header">
+  <div>Expense Tracker</div>
+  <label class="currency-control" for="currencySelect">
+    Currency
+    <select id="currencySelect" onchange="setCurrency(this.value)">
+      <option value="BHD">Bahrain - BHD</option>
+      <option value="INR">India - INR</option>
+    </select>
+  </label>
+</div>
 <div class="tabs">
   <button class="active" onclick="switchTab('expenses', this)">Expenses</button>
   <button onclick="switchTab('loans', this)">Loans</button>
@@ -516,6 +573,13 @@ button.add {
 
 <div id="dataTab" class="container" style="display:none;">
 
+  <h3>Exchange Rates</h3>
+  <label class="rate-row" for="bhdToInrRate">
+    <span>1 BHD =</span>
+    <input type="number" id="bhdToInrRate" min="0" step="0.01" value="255.34" oninput="updateExchangeRate(this.value)">
+    <span>INR</span>
+  </label>
+
   <h3>Export Data</h3>
   <button type="button" class="add" onclick="exportData()">Download JSON</button>
   <button type="button" class="add" onclick="exportExcelData()" style="margin-top:10px;">Download Excel</button>
@@ -533,14 +597,18 @@ button.add {
   <div class="row">
     <input type="date" id="date">
     <input type="number" id="amount" placeholder="Amount">
+    <select id="expenseCurrency">
+      <option value="BHD">BHD</option>
+      <option value="INR">INR</option>
+    </select>
   </div>
 
-  <div class="category-box">
+  <div class="category-box form-field">
     <input type="text" id="category" placeholder="Category">
     <div id="suggestions" class="suggestions"></div>
   </div>
 
-  <input type="text" id="desc" placeholder="Description">
+  <input class="form-field" type="text" id="desc" placeholder="Description">
 
   <div class="toggle">
     <span>Self</span>
@@ -560,14 +628,18 @@ button.add {
   <div class="row">
     <input type="date" id="loanDate">
     <input type="number" id="loanAmount" placeholder="Amount">
+    <select id="loanCurrency">
+      <option value="BHD">BHD</option>
+      <option value="INR">INR</option>
+    </select>
   </div>
-  <select id="loanType">
+  <select class="form-field" id="loanType">
     <option value="disbursed">Given</option>
     <option value="repaid">Returned</option>
   </select>
-  <input type="text" id="loanFriend" list="loanFriendList" placeholder="Friend name">
+  <input class="form-field" type="text" id="loanFriend" list="loanFriendList" placeholder="Friend name">
   <datalist id="loanFriendList"></datalist>
-  <input type="text" id="loanDesc" placeholder="Notes">
+  <input class="form-field" type="text" id="loanDesc" placeholder="Notes">
   <button class="add" id="loanSubmitBtn" onclick="addLoan()" style="margin-top:10px;">Add Loan</button>
   <button class="add" id="loanCancelEditBtn" onclick="cancelLoanEdit()" style="display:none;margin-top:8px;background:#64748b;">Cancel Edit</button>
 </div>
@@ -607,14 +679,67 @@ let fromDate = null;
 let toDate = null;
 let editExpenseIndex = -1;
 let editLoanIndex = -1;
+let selectedCurrency = "BHD";
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
+const currencyOptions = {
+  BHD: { label: "BHD", decimals: 3, perBHD: 1 },
+  INR: { label: "INR", decimals: 2, perBHD: 255.34 }
+};
 
 const categoryInput = document.getElementById("category");
 const suggestionBox = document.getElementById("suggestions");
 
-function formatBHD(value) {
-  return `BHD ${Number(value || 0).toFixed(3)}`;
+function getRecordCurrency(record) {
+  return currencyOptions[record?.currency] ? record.currency : "BHD";
+}
+
+function formatMoney(value, currencyCode = selectedCurrency) {
+  const currency = currencyOptions[currencyCode] || currencyOptions.BHD;
+  return `${currency.label} ${Number(value || 0).toFixed(currency.decimals)}`;
+}
+
+function convertMoney(value, fromCurrency = "BHD", toCurrency = selectedCurrency) {
+  const from = currencyOptions[fromCurrency] || currencyOptions.BHD;
+  const to = currencyOptions[toCurrency] || currencyOptions.BHD;
+  return (Number(value || 0) / from.perBHD) * to.perBHD;
+}
+
+function formatConvertedMoney(value, fromCurrency, toCurrency = selectedCurrency) {
+  return formatMoney(convertMoney(value, fromCurrency, toCurrency), toCurrency);
+}
+
+function setCurrency(currency) {
+  selectedCurrency = currencyOptions[currency] ? currency : "BHD";
+  const selector = document.getElementById("currencySelect");
+  if (selector) selector.value = selectedCurrency;
+  render();
+  renderAnalytics();
+}
+
+function updateExchangeRate(value) {
+  const rate = parseFloat(value);
+  if (!Number.isFinite(rate) || rate <= 0) return;
+
+  currencyOptions.INR.perBHD = rate;
+  render();
+  renderAnalytics();
+  noteLocalDataChanged();
+}
+
+function syncExchangeRateInput() {
+  const input = document.getElementById("bhdToInrRate");
+  if (input) input.value = currencyOptions.INR.perBHD;
+}
+
+function getLimit(category) {
+  if (limits[category] === undefined) return undefined;
+  return convertMoney(limits[category], "BHD", selectedCurrency);
+}
+
+function setLimitValue(category, value) {
+  if (value === "") delete limits[category];
+  else limits[category] = convertMoney(parseFloat(value), selectedCurrency, "BHD");
 }
 
 const pieChartOptions = {
@@ -639,7 +764,7 @@ const pieChartOptions = {
             const style = meta.controller.getStyle(index);
 
             return {
-              text: `${label}: ${formatBHD(dataset.data[index] ?? 0)}`,
+              text: `${label}: ${formatMoney(dataset.data[index] ?? 0, selectedCurrency)}`,
               fillStyle: style.backgroundColor,
               strokeStyle: style.borderColor,
               lineWidth: style.borderWidth,
@@ -714,6 +839,7 @@ function addExpense() {
   const date = dateEl.value;
   const desc = descEl.value;
   const amount = parseFloat(amountEl.value);
+  const currency = document.getElementById("expenseCurrency").value;
   const category = categoryInput.value || "General";
   const isClaim = toggleEl.checked;
 
@@ -722,7 +848,7 @@ function addExpense() {
     return;
   }
 
-  const nextExpense = { date, desc, amount, category, type: isClaim ? "claim" : "self" };
+  const nextExpense = { date, desc, amount, category, currency, type: isClaim ? "claim" : "self" };
   const wasEditingExpense = editExpenseIndex >= 0;
   if (wasEditingExpense) {
     expenses[editExpenseIndex] = nextExpense;
@@ -747,6 +873,7 @@ function addLoan() {
   const date = loanDateEl.value;
   const friend = loanFriendEl.value.trim();
   const amount = parseFloat(loanAmountEl.value);
+  const currency = document.getElementById("loanCurrency").value;
   const type = loanTypeEl.value;
   const desc = loanDescEl.value;
 
@@ -755,7 +882,7 @@ function addLoan() {
     return;
   }
 
-  const nextLoan = { date, friend, amount, type, desc };
+  const nextLoan = { date, friend, amount, type, desc, currency };
   const wasEditingLoan = editLoanIndex >= 0;
   if (wasEditingLoan) {
     loans[editLoanIndex] = nextLoan;
@@ -809,8 +936,7 @@ function renderCategoryFilter() {
 
 /* Limits */
 function updateLimit(category, value) {
-  if (value === "") delete limits[category];
-  else limits[category] = parseFloat(value);
+  setLimitValue(category, value);
   render();
   noteLocalDataChanged();
 }
@@ -828,22 +954,24 @@ function renderExpenses() {
   const list = document.getElementById("expenseList");
   list.innerHTML = "";
 
-  let selfTotal = 0, claimTotal = 0;
+  let selfTotal = 0;
+  let claimTotal = 0;
 
   expenses.forEach((exp, index) => {
   if (fromDate && exp.date < fromDate) return;
   if (toDate && exp.date > toDate) return;
-    if (exp.type === "self") selfTotal += exp.amount;
-    else claimTotal += exp.amount;
+    const currency = getRecordCurrency(exp);
+    if (exp.type === "self") selfTotal += convertMoney(exp.amount, currency, selectedCurrency);
+    else claimTotal += convertMoney(exp.amount, currency, selectedCurrency);
 
     if (currentFilter !== "all" && exp.type !== currentFilter) return;
     if (categoryFilter !== "all" && exp.category !== categoryFilter) return;
 
     const totalForCat = expenses
       .filter(e => e.type === "self" && e.category === exp.category)
-      .reduce((sum, e) => sum + e.amount, 0);
+      .reduce((sum, e) => sum + convertMoney(e.amount, getRecordCurrency(e), selectedCurrency), 0);
 
-    const limit = limits[exp.category];
+    const limit = getLimit(exp.category);
 
     const item = document.createElement("div");
     item.className = "expense-item";
@@ -852,13 +980,13 @@ function renderExpenses() {
     item.innerHTML = `
       <div>
         <b>${exp.desc}</b><br>
-        <small>${exp.date} - ${exp.category}</small>
+        <small>${exp.date} - ${exp.category} - ${currency}</small>
         ${exp.type === "self" && limit && totalForCat > limit ? `<div class="exceed">Limit exceeded!</div>` : ""}
       </div>
 
       <!-- shifted content left using padding -->
       <div class="record-meta">
-        <div class="record-amount">${formatBHD(exp.amount)}</div>
+        <div class="record-amount">${formatConvertedMoney(exp.amount, currency)}</div>
         <div class="type ${exp.type}">
           ${exp.type === "claim" ? "Claimable" : "Self"}
         </div>
@@ -891,8 +1019,8 @@ function renderExpenses() {
     list.appendChild(item);
   });
 
-  document.getElementById("selfTotal").innerText = formatBHD(selfTotal);
-  document.getElementById("claimTotal").innerText = formatBHD(claimTotal);
+  document.getElementById("selfTotal").innerText = formatMoney(selfTotal, selectedCurrency);
+  document.getElementById("claimTotal").innerText = formatMoney(claimTotal, selectedCurrency);
 }
 
 function renderLoans() {
@@ -905,8 +1033,9 @@ function renderLoans() {
   loans.forEach((loan, index) => {
     const type = loan.type || "disbursed";
     const typeLabel = type === "repaid" ? "Returned" : "Given";
+    const currency = getRecordCurrency(loan);
 
-    loanTotal += type === "repaid" ? -loan.amount : loan.amount;
+    loanTotal += convertMoney(type === "repaid" ? -loan.amount : loan.amount, currency, selectedCurrency);
 
     const item = document.createElement("div");
     item.className = "expense-item";
@@ -915,11 +1044,11 @@ function renderLoans() {
     item.innerHTML = `
       <div>
         <b>${loan.friend}</b><br>
-        <small>${loan.date} - ${typeLabel}${loan.desc ? ` - ${loan.desc}` : ""}</small>
+        <small>${loan.date} - ${typeLabel} - ${currency}${loan.desc ? ` - ${loan.desc}` : ""}</small>
       </div>
 
       <div class="record-meta">
-        <div class="record-amount">${type === "repaid" ? "-" : ""}${formatBHD(loan.amount)}</div>
+        <div class="record-amount">${type === "repaid" ? "-" : ""}${formatConvertedMoney(loan.amount, currency)}</div>
         <div class="type self">Loan</div>
       </div>
 
@@ -950,7 +1079,7 @@ function renderLoans() {
     list.appendChild(item);
   });
 
-  document.getElementById("loanTotal").innerText = formatBHD(loanTotal);
+  document.getElementById("loanTotal").innerText = formatMoney(loanTotal, selectedCurrency);
 }
 
 function addLoanFriend(friend) {
@@ -998,6 +1127,7 @@ function editLoan(index) {
   loanTypeEl.value = loan.type || "disbursed";
   loanFriendEl.value = loan.friend || "";
   loanDescEl.value = loan.desc || "";
+  document.getElementById("loanCurrency").value = getRecordCurrency(loan);
   updateEditButtons();
   activateTab("loans");
 }
@@ -1025,7 +1155,6 @@ const now = new Date();
 const total = expenses
   .filter(e => {
     if (e.type !== "self" || e.category !== cat) return false;
-
     const d = new Date(e.date);
 
     return (
@@ -1033,9 +1162,9 @@ const total = expenses
       d.getFullYear() === now.getFullYear()
     );
   })
-  .reduce((sum, e) => sum + e.amount, 0);
+  .reduce((sum, e) => sum + convertMoney(e.amount, getRecordCurrency(e), selectedCurrency), 0);
 
-const limit = limits[cat];
+const limit = getLimit(cat);
 
 let percent = 0;
 if (limit && limit > 0) {
@@ -1048,12 +1177,12 @@ if (limit && limit > 0) {
       <b>
   ${cat}
   <span style="font-weight:normal; font-size:12px; margin-left:6px;">
-    ${limit ? `${formatBHD(total)} / ${formatBHD(limit)} (${percent}%)` : ""}
+    ${limit ? `${formatMoney(total, selectedCurrency)} / ${formatMoney(limit, selectedCurrency)} (${percent}%)` : ""}
   </span>
 </b>
       <input class="limit-input"
         type="number"
-        value="${limits[cat] ?? ''}"
+        value="${limit ?? ''}"
         placeholder="Limit"
         oninput="updateLimit('${cat}', this.value)">
     </div>
@@ -1093,7 +1222,7 @@ function renderAnalytics() {
   // TYPE FILTER
   if (analyticsFilter !== "all" && e.type !== analyticsFilter) return;
 
-  totals[e.category] = (totals[e.category] || 0) + e.amount;
+  totals[e.category] = (totals[e.category] || 0) + convertMoney(e.amount, getRecordCurrency(e), selectedCurrency);
 });
 
   if (analyticsChart) analyticsChart.destroy();
@@ -1126,7 +1255,7 @@ function renderLoanAnalytics() {
     if (toDate && loan.date > toDate) return;
 
     const type = loan.type || "disbursed";
-    const amount = type === "repaid" ? -loan.amount : loan.amount;
+    const amount = convertMoney(type === "repaid" ? -loan.amount : loan.amount, getRecordCurrency(loan), selectedCurrency);
     totals[loan.friend] = (totals[loan.friend] || 0) + amount;
   });
 
@@ -1135,7 +1264,7 @@ function renderLoanAnalytics() {
     else totalBalance += totals[friend];
   });
 
-  document.getElementById("analyticsLoanTotal").innerText = formatBHD(totalBalance);
+  document.getElementById("analyticsLoanTotal").innerText = formatMoney(totalBalance, selectedCurrency);
 
   if (loanAnalyticsChart) loanAnalyticsChart.destroy();
 
@@ -1173,8 +1302,9 @@ expenses.forEach(e => {
   const d = new Date(e.date);
   if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return;
 
-  totals[e.category] = (totals[e.category] || 0) + e.amount;
-  totalSum += e.amount;
+  const amount = convertMoney(e.amount, getRecordCurrency(e), selectedCurrency);
+  totals[e.category] = (totals[e.category] || 0) + amount;
+  totalSum += amount;
 });
 
   if (chartInstance) chartInstance.destroy();
@@ -1197,15 +1327,14 @@ expenses.forEach(e => {
 const selectedTotal = expenses
   .filter(e => {
     if (e.type !== "self" || e.category !== selectedCategory) return false;
-
     const d = new Date(e.date);
     return (
       d.getMonth() === now.getMonth() &&
       d.getFullYear() === now.getFullYear()
     );
   })
-  .reduce((sum, e) => sum + e.amount, 0);
-  const limit = limits[selectedCategory];
+  .reduce((sum, e) => sum + convertMoney(e.amount, getRecordCurrency(e), selectedCurrency), 0);
+  const limit = getLimit(selectedCategory);
 
   let percent = 0;
 
@@ -1214,8 +1343,8 @@ const selectedTotal = expenses
   }
 
   document.getElementById("categoryLabel").innerText =
-    limit ? `${selectedCategory}: ${formatBHD(selectedTotal)} / ${formatBHD(limit)} (${percent}%)`
-          : `${selectedCategory}: No limit set`;
+    limit ? `${selectedCategory}: ${formatMoney(selectedTotal, selectedCurrency)} / ${formatMoney(limit, selectedCurrency)} (${percent}%)`
+          : `${selectedCategory}: No ${selectedCurrency} limit set`;
 
   const bar = document.getElementById("progressBar");
 
@@ -1253,6 +1382,9 @@ function getBackupData() {
     loans: loans,
     loanFriends: loanFriends,
     limits: limits,
+    exchangeRates: {
+      BHD_TO_INR: currencyOptions.INR.perBHD
+    },
     exportedAt: new Date().toISOString()
   };
 }
@@ -1262,9 +1394,15 @@ function applyBackupData(data) {
   loans = data.loans || [];
   loanFriends = data.loanFriends || [];
   limits = data.limits || {};
+  if (data.exchangeRates?.BHD_TO_INR) {
+    currencyOptions.INR.perBHD = Number(data.exchangeRates.BHD_TO_INR) || currencyOptions.INR.perBHD;
+  }
   migrateLoanExpenses();
   normalizeLoanTypes();
+  normalizeRecordCurrencies();
+  normalizeLimits();
   syncLoanFriendsFromLoans();
+  syncExchangeRateInput();
   render();
 }
 
@@ -1297,6 +1435,7 @@ function exportExcelData() {
     Date: exp.date,
     Description: exp.desc,
     Category: exp.category,
+    Currency: getRecordCurrency(exp),
     Type: exp.type === "claim" ? "Claimable" : "Self",
     Amount: exp.amount
   }));
@@ -1306,6 +1445,7 @@ function exportExcelData() {
     return {
       Date: loan.date,
       Friend: loan.friend,
+      Currency: getRecordCurrency(loan),
       Type: type === "repaid" ? "Returned" : "Given",
       Notes: loan.desc || "",
       Amount: loan.amount,
@@ -1313,26 +1453,34 @@ function exportExcelData() {
     };
   });
 
-  const limitRows = Object.keys(limits).sort().map(category => ({
-    Category: category,
-    Limit: limits[category]
-  }));
+  const limitRows = Object.keys(limits).sort().map(key => {
+    return {
+      Category: key,
+      BaseCurrency: "BHD",
+      Limit: limits[key],
+      DisplayCurrency: selectedCurrency,
+      DisplayLimit: convertMoney(limits[key], "BHD", selectedCurrency)
+    };
+  });
 
-  const selfTotal = expenses
-    .filter(exp => exp.type === "self")
-    .reduce((sum, exp) => sum + exp.amount, 0);
-  const claimTotal = expenses
-    .filter(exp => exp.type === "claim")
-    .reduce((sum, exp) => sum + exp.amount, 0);
-  const loanBalance = loans.reduce((sum, loan) => {
+  let selfTotal = 0;
+  let claimTotal = 0;
+  expenses.forEach(exp => {
+    const amount = convertMoney(exp.amount, getRecordCurrency(exp), selectedCurrency);
+    if (exp.type === "claim") claimTotal += amount;
+    else selfTotal += amount;
+  });
+
+  let loanBalance = 0;
+  loans.forEach(loan => {
     const type = loan.type || "disbursed";
-    return sum + (type === "repaid" ? -loan.amount : loan.amount);
-  }, 0);
+    loanBalance += convertMoney(type === "repaid" ? -loan.amount : loan.amount, getRecordCurrency(loan), selectedCurrency);
+  });
 
   const summaryRows = [
-    { Metric: "Self Total", Value: selfTotal },
-    { Metric: "Claim Total", Value: claimTotal },
-    { Metric: "Outstanding Loan Balance", Value: loanBalance }
+    { Metric: "Self Total", Currency: selectedCurrency, Value: selfTotal },
+    { Metric: "Claim Total", Currency: selectedCurrency, Value: claimTotal },
+    { Metric: "Outstanding Loan Balance", Currency: selectedCurrency, Value: loanBalance }
   ];
 
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Summary");
@@ -1436,6 +1584,7 @@ function editExpense(index) {
   categoryInput.value = exp.category || "";
   descEl.value = exp.desc || "";
   toggleEl.checked = exp.type === "claim";
+  document.getElementById("expenseCurrency").value = getRecordCurrency(exp);
   updateEditButtons();
   activateTab("expenses");
 }
@@ -1476,6 +1625,34 @@ function normalizeLoanTypes() {
   });
 }
 
+function normalizeRecordCurrencies() {
+  expenses.forEach(exp => {
+    if (!currencyOptions[exp.currency]) exp.currency = "BHD";
+  });
+
+  loans.forEach(loan => {
+    if (!currencyOptions[loan.currency]) loan.currency = "BHD";
+  });
+}
+
+function normalizeLimits() {
+  const normalized = {};
+
+  Object.keys(limits).forEach(key => {
+    const value = limits[key];
+    if (key.includes("__")) {
+      const [category, currency] = key.split("__");
+      if (currencyOptions[currency]) {
+        normalized[category] = convertMoney(value, currency, "BHD");
+      }
+    } else {
+      normalized[key] = value;
+    }
+  });
+
+  limits = normalized;
+}
+
 async function setCurrentMonth() {
   const now = new Date();
 
@@ -1513,6 +1690,7 @@ window.onload = async function () {
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
   updateEditButtons();
+  syncExchangeRateInput();
   
   
   flatpickr("#dateRangeAnalytics", {
