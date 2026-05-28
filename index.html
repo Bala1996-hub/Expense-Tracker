@@ -680,6 +680,7 @@ let toDate = null;
 let editExpenseIndex = -1;
 let editLoanIndex = -1;
 let selectedCurrency = "BHD";
+const LOCAL_STORAGE_KEY = "expenseTrackerLocalData";
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
 const currencyOptions = {
@@ -724,7 +725,6 @@ function updateExchangeRate(value) {
   currencyOptions.INR.perBHD = rate;
   render();
   renderAnalytics();
-  noteLocalDataChanged();
 }
 
 function syncExchangeRateInput() {
@@ -1500,7 +1500,21 @@ function exportExcelData() {
 }
 
 function noteLocalDataChanged() {
-  // Local-only mode keeps data in memory until the user exports it.
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(getBackupData()));
+  } catch (error) {
+    console.warn("Local save failed", error);
+  }
+}
+
+function loadLocalData() {
+  try {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!saved) return;
+    applyBackupData(JSON.parse(saved));
+  } catch (error) {
+    console.warn("Local load failed", error);
+  }
 }
 
 function clearLocalData() {
@@ -1511,10 +1525,10 @@ function clearLocalData() {
   loans = [];
   loanFriends = [];
   limits = {};
+  localStorage.removeItem(LOCAL_STORAGE_KEY);
 
   render();
   renderAnalytics();
-  noteLocalDataChanged();
 }
 
 function importData() {
@@ -1691,6 +1705,7 @@ window.onload = async function () {
   loanDescEl = document.getElementById("loanDesc");
   updateEditButtons();
   syncExchangeRateInput();
+  loadLocalData();
   
   
   flatpickr("#dateRangeAnalytics", {
