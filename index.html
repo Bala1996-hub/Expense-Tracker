@@ -9,7 +9,6 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -26,28 +25,6 @@ body {
   color: white;
   padding: 14px;
   text-align: center;
-  font-weight: bold;
-}
-
-.sync-banner {
-  display: none;
-  background: #fff7ed;
-  color: #9a3412;
-  border-bottom: 1px solid #fed7aa;
-  padding: 10px 14px;
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.sync-banner button {
-  border: 1px solid #fb923c;
-  background: white;
-  color: #9a3412;
-  border-radius: 6px;
-  padding: 5px 8px;
-  margin-left: 8px;
-  font-size: 12px;
   font-weight: bold;
 }
 
@@ -286,107 +263,6 @@ button.add {
   font-weight: bold;
 }
 
-.sync-box {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 20px;
-}
-
-.data-subtabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.data-subtabs button {
-  border: 1px solid #cbd5e1;
-  background: white;
-  color: #334155;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.data-subtabs button.active {
-  background: #007bff;
-  border-color: #007bff;
-  color: white;
-}
-
-.data-panel {
-  display: none;
-}
-
-.data-panel.active {
-  display: block;
-}
-
-.sync-box input {
-  margin-bottom: 8px;
-}
-
-.remember-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 10px;
-  color: #334155;
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.remember-row input {
-  width: auto;
-  margin: 0;
-  flex: 0 0 auto;
-}
-
-.remember-row span {
-  display: inline-block;
-  padding-top: 1px;
-}
-
-.sync-box input[disabled],
-.sync-box button[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.supabase-setup {
-  display: none;
-}
-
-.sync-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.sync-status {
-  margin-top: 8px;
-  color: #475569;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.sync-note {
-  margin-top: 6px;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.sync-user {
-  margin: 8px 0;
-  color: #111827;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
 .analytics-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -454,48 +330,6 @@ button.add {
 .popup-chart-box canvas {
   width: 100% !important;
   height: 240px !important;
-}
-
-.encryption-modal {
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(15,23,42,0.55);
-  z-index:1000;
-  padding:18px;
-}
-
-.encryption-modal-content {
-  background:white;
-  margin:12vh auto 0;
-  padding:16px;
-  width:100%;
-  max-width:420px;
-  border-radius:8px;
-  box-shadow:0 16px 40px rgba(15,23,42,0.22);
-}
-
-.modal-header {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.modal-header h3 {
-  margin:0;
-}
-
-.icon-button {
-  border:none;
-  background:#eef2f7;
-  color:#334155;
-  width:32px;
-  height:32px;
-  border-radius:8px;
-  font-size:20px;
-  line-height:1;
 }
 
 @media (max-width: 430px) {
@@ -575,10 +409,6 @@ button.add {
     padding: 11px;
   }
 
-  .sync-actions {
-    grid-template-columns: 1fr;
-  }
-
   .chart-box,
   .chart-box canvas {
     height: 240px !important;
@@ -605,11 +435,6 @@ button.add {
 <body>
 
 <div class="header">Expense Tracker</div>
-<div id="syncBanner" class="sync-banner">
-  Encrypted data is locked.
-  <button type="button" onclick="openEncryptionPrompt()">Unlock</button>
-</div>
-
 <div class="tabs">
   <button class="active" onclick="switchTab('expenses', this)">Expenses</button>
   <button onclick="switchTab('loans', this)">Loans</button>
@@ -691,113 +516,16 @@ button.add {
 
 <div id="dataTab" class="container" style="display:none;">
 
-  <div class="data-subtabs">
-    <button type="button" class="active" onclick="switchDataSubtab('cloud', this)">Cloud</button>
-    <button type="button" onclick="switchDataSubtab('local', this)">Local</button>
-  </div>
+  <h3>Export Data</h3>
+  <button type="button" class="add" onclick="exportData()">Download JSON</button>
+  <button type="button" class="add" onclick="exportExcelData()" style="margin-top:10px;">Download Excel</button>
 
-  <div id="dataCloudPanel" class="data-panel active">
-    <div class="sync-box supabase-setup" aria-hidden="true" style="margin-top:0;">
-      <h3 style="margin-top:0;">Supabase Setup</h3>
-      <input type="text" id="supabaseUrl" placeholder="Supabase Project URL">
-      <input type="text" id="supabaseKey" placeholder="Supabase Publishable Key">
-      <button type="button" class="add" onclick="connectSupabase()">Connect Supabase</button>
-      <div id="supabaseStatus" class="sync-status">Supabase not connected</div>
-      <div class="sync-note">Use the Project URL and publishable key from your Supabase project's Connect dialog or API Keys page.</div>
-    </div>
+  <h3 style="margin-top:20px;">Import Data</h3>
+  <input type="file" id="fileInput" accept=".json">
+  <button class="add" onclick="importData()" style="margin-top:10px;">
+    Import JSON
+  </button>
 
-    <div class="sync-box" style="margin-top:0;">
-      <h3 style="margin-top:0;">Supabase Account</h3>
-      <input type="email" id="supabaseEmail" placeholder="Email address" autocomplete="email">
-      <input type="password" id="supabaseEncryptionPassword" placeholder="Password" autocomplete="current-password">
-      <label class="remember-row">
-        <input type="checkbox" id="supabaseRememberPhrase">
-        <span>Remember me</span>
-      </label>
-      <button type="button" class="add" id="supabaseSignInBtn" onclick="signInSupabase()">Sign In</button>
-      <button type="button" class="add" id="supabaseGoogleSignInBtn" onclick="signInWithGoogle()" style="margin-top:8px;">Sign In with Google</button>
-      <button type="button" class="add" id="supabaseSignOutBtn" onclick="signOutSupabase()" style="display:none;margin-top:8px;">Sign Out</button>
-      <div id="supabaseUser" class="sync-user"></div>
-      <div id="supabaseAuthStatus" class="sync-status">Not signed in</div>
-      <div class="sync-note">Email or Google verifies your account. The password is used only on this page as your encryption key.</div>
-    </div>
-
-    <div class="sync-box">
-      <h3 style="margin-top:0;">Data Encryption</h3>
-      <div id="encryptionStatus" class="sync-status">Sign in and enter your encryption password to unlock data.</div>
-      <button type="button" class="add" id="openEncryptionPromptBtn" onclick="openEncryptionPrompt()" style="margin-top:10px;display:none;">Open Encryption Popup</button>
-      <div class="sync-note">If Remember me is checked, the encryption password is stored in this browser and removed when you sign out.</div>
-    </div>
-
-    <div class="sync-box">
-      <h3 style="margin-top:0;">Supabase Sync</h3>
-      <div id="supabaseSyncStatus" class="sync-status">Sign in and unlock encryption to load Supabase data.</div>
-      <div class="sync-note">Expenses, loans, and limits are encrypted before they leave this page, then saved to Supabase automatically.</div>
-    </div>
-  </div>
-
-  <div id="dataLocalPanel" class="data-panel">
-    <h3>Export Data</h3>
-    <button type="button" class="add" onclick="exportData()">Download JSON</button>
-    <button type="button" class="add" onclick="exportExcelData()" style="margin-top:10px;">Download Excel</button>
-    <button type="button" class="add" onclick="exportEncryptedData()" style="margin-top:10px;">Download Encrypted Vault</button>
-
-    <h3 style="margin-top:20px;">Import Data</h3>
-    <input type="file" id="fileInput" accept=".json">
-    <button class="add" onclick="importData()" style="margin-top:10px;">
-      Import JSON
-    </button>
-  </div>
-
-</div>
-
-<div id="encryptionModal" class="encryption-modal" role="dialog" aria-modal="true" aria-labelledby="encryptionModalTitle">
-  <div class="encryption-modal-content">
-    <div class="modal-header">
-      <h3 id="encryptionModalTitle">Unlock Encrypted Data</h3>
-      <button type="button" class="icon-button" onclick="closeEncryptionPrompt()" aria-label="Close encryption popup">&times;</button>
-    </div>
-    <input type="password" id="modalEncryptionPassword" placeholder="Password" autocomplete="current-password">
-    <label class="remember-row">
-      <input type="checkbox" id="modalRememberPhrase">
-      <span>Remember me</span>
-    </label>
-    <button type="button" class="add" id="encryptionUnlockBtn" onclick="unlockEncryptedData()">Unlock Now</button>
-    <button type="button" class="add" onclick="openRecoveryPrompt()" style="margin-top:8px;">Forgot Password?</button>
-    <div id="encryptionModalStatus" class="sync-status">Enter the same password you used when signing in.</div>
-    <div class="sync-note">If this password is forgotten, use the saved recovery key to set a new password.</div>
-  </div>
-</div>
-
-<div id="recoveryModal" class="encryption-modal" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
-  <div class="encryption-modal-content">
-    <div class="modal-header">
-      <h3 id="recoveryModalTitle">Recover Encryption Access</h3>
-      <button type="button" class="icon-button" onclick="closeRecoveryPrompt()" aria-label="Close recovery popup">&times;</button>
-    </div>
-    <input type="text" id="recoveryKeyInput" placeholder="Recovery key" autocomplete="off">
-    <input type="password" id="newEncryptionPassword" placeholder="New password" autocomplete="new-password">
-    <label class="remember-row">
-      <input type="checkbox" id="recoveryRememberPhrase">
-      <span>Remember me</span>
-    </label>
-    <button type="button" class="add" onclick="recoverWithRecoveryKey()">Recover and Set New Password</button>
-    <div id="recoveryStatus" class="sync-status">Use your saved recovery key to set a new encryption password.</div>
-    <div class="sync-note">The recovery key unlocks the data key only in this browser. It is not stored plainly in Supabase.</div>
-  </div>
-</div>
-
-<div id="recoveryKeyModal" class="encryption-modal" role="dialog" aria-modal="true" aria-labelledby="recoveryKeyModalTitle">
-  <div class="encryption-modal-content">
-    <div class="modal-header">
-      <h3 id="recoveryKeyModalTitle">Save Recovery Key</h3>
-      <button type="button" class="icon-button" onclick="closeRecoveryKeyPrompt()" aria-label="Close recovery key popup">&times;</button>
-    </div>
-    <textarea id="generatedRecoveryKey" readonly rows="3" style="width:100%;box-sizing:border-box;"></textarea>
-    <button type="button" class="add" onclick="downloadRecoveryKey()" style="margin-top:8px;">Download Recovery Key</button>
-    <button type="button" class="add" onclick="closeRecoveryKeyPrompt()" style="margin-top:8px;">I Saved It</button>
-    <div class="sync-note">Save this key in a password manager or safe place. It can reset the encryption password if the password is forgotten.</div>
-  </div>
 </div>
 
 <!-- Bottom Input -->
@@ -877,39 +605,8 @@ let analyticsView = "expenses";
 let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
-let supabaseClient = null;
-let supabaseUser = null;
-let supabaseConnected = false;
-let supabaseAuthSubscription = null;
-let supabaseHasUnsyncedChanges = false;
-let supabaseSyncTimer = null;
-let supabaseSyncInProgress = false;
-let supabaseSyncQueued = false;
-let supabaseLoadInProgress = false;
-let supabaseMagicLinkSent = false;
-let encryptionKey = null;
-let encryptionRawKeyBytes = null;
-let encryptionSalt = "";
-let encryptionUnlocked = false;
-let encryptionPromptDismissed = false;
 let editExpenseIndex = -1;
 let editLoanIndex = -1;
-let magicLinkCooldownTimer = null;
-let magicLinkCooldownUntil = 0;
-let currentEncryptionPassphrase = "";
-let latestRecoveryKey = "";
-const SUPABASE_DEFAULT_URL = "https://cwgcdcrhqyrrbdogeoud.supabase.co";
-const SUPABASE_DEFAULT_KEY = "sb_publishable_nxii-GFhfzaqD7y6V5S_mg_AIbufSjs";
-const SUPABASE_REDIRECT_URL = "https://bala1996-hub.github.io/Expense-Tracker/";
-const ENCRYPTED_BACKUP_TABLE = "encrypted_backups";
-const ENCRYPTED_MONTHLY_TABLE = "encrypted_monthly_backups";
-const KEY_WRAPPER_TABLE = "encryption_key_wrappers";
-const SETTINGS_CHUNK_KEY = "settings";
-const REMEMBERED_PHRASE_PREFIX = "expenseTrackerEncryptionPhrase:";
-const PENDING_OAUTH_PHRASE_KEY = "expenseTrackerPendingOAuthPhrase";
-const PENDING_OAUTH_REMEMBER_KEY = "expenseTrackerPendingOAuthRemember";
-const WRAPPED_KEY_SALT = "wrapped-key-v2";
-let loadedMonthKeys = new Set();
 
 const categories = ["Food","Grocery","Entertainment","Bills","Shopping","Travel","Medical"];
 
@@ -1000,19 +697,6 @@ function activateTab(tab) {
   if (button) switchTab(tab, button);
 }
 
-function switchDataSubtab(tab, el) {
-  const cloudPanel = document.getElementById("dataCloudPanel");
-  const localPanel = document.getElementById("dataLocalPanel");
-
-  if (cloudPanel) cloudPanel.classList.toggle("active", tab === "cloud");
-  if (localPanel) localPanel.classList.toggle("active", tab === "local");
-
-  document.querySelectorAll(".data-subtabs button").forEach(button => {
-    button.classList.remove("active");
-  });
-  if (el) el.classList.add("active");
-}
-
 function updateEditButtons() {
   const expenseSubmitBtn = document.getElementById("expenseSubmitBtn");
   const expenseCancelBtn = document.getElementById("expenseCancelEditBtn");
@@ -1027,8 +711,6 @@ function updateEditButtons() {
 
 /* Add Expense */
 function addExpense() {
-  if (!canWriteSupabaseData()) return;
-
   const date = dateEl.value;
   const desc = descEl.value;
   const amount = parseFloat(amountEl.value);
@@ -1053,7 +735,6 @@ function addExpense() {
   categoryInput.value = "";
   editExpenseIndex = -1;
   updateEditButtons();
-  loadedMonthKeys.add(getMonthKey(date));
 
   render();
   noteLocalDataChanged();
@@ -1063,8 +744,6 @@ if (!isClaim && !wasEditingExpense) {
 }
 
 function addLoan() {
-  if (!canWriteSupabaseData()) return;
-
   const date = loanDateEl.value;
   const friend = loanFriendEl.value.trim();
   const amount = parseFloat(loanAmountEl.value);
@@ -1090,7 +769,6 @@ function addLoan() {
   loanDescEl.value = "";
   editLoanIndex = -1;
   updateEditButtons();
-  loadedMonthKeys.add(getMonthKey(date));
 
   render();
   noteLocalDataChanged();
@@ -1131,8 +809,6 @@ function renderCategoryFilter() {
 
 /* Limits */
 function updateLimit(category, value) {
-  if (!canWriteSupabaseData()) return;
-
   if (value === "") delete limits[category];
   else limits[category] = parseFloat(value);
   render();
@@ -1305,8 +981,6 @@ function renderLoanFriends() {
 }
 
 function deleteLoan(index) {
-  if (!canWriteSupabaseData()) return;
-
   loans.splice(index, 1);
   if (editLoanIndex === index) cancelLoanEdit();
   else if (editLoanIndex > index) editLoanIndex -= 1;
@@ -1315,8 +989,6 @@ function deleteLoan(index) {
 }
 
 function editLoan(index) {
-  if (!canWriteSupabaseData()) return;
-
   const loan = loans[index];
   if (!loan) return;
 
@@ -1596,81 +1268,11 @@ function applyBackupData(data) {
   render();
 }
 
-function getMonthKey(dateValue) {
-  return String(dateValue || "").slice(0, 7);
-}
-
 function formatDateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function getCurrentMonthKey() {
-  return formatDateKey(new Date()).slice(0, 7);
-}
-
-function getMonthKeysBetween(startDate, endDate) {
-  const start = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
-  const end = endDate ? new Date(`${endDate}T00:00:00`) : start;
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const finish = new Date(end.getFullYear(), end.getMonth(), 1);
-  const keys = [];
-
-  while (cursor <= finish) {
-    keys.push(formatDateKey(cursor).slice(0, 7));
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  return keys;
-}
-
-function getActiveMonthKeys() {
-  return getMonthKeysBetween(fromDate, toDate);
-}
-
-function buildMonthlyPayload(monthKey) {
-  return {
-    version: 2,
-    chunkKey: monthKey,
-    expenses: expenses.filter(item => getMonthKey(item.date) === monthKey),
-    loans: loans.filter(item => getMonthKey(item.date) === monthKey),
-    updatedAt: new Date().toISOString()
-  };
-}
-
-function buildSettingsPayload() {
-  return {
-    version: 2,
-    chunkKey: SETTINGS_CHUNK_KEY,
-    loanFriends,
-    limits,
-    updatedAt: new Date().toISOString()
-  };
-}
-
-function mergeMonthlyPayload(payload, monthKey) {
-  expenses = expenses.filter(item => getMonthKey(item.date) !== monthKey);
-  loans = loans.filter(item => getMonthKey(item.date) !== monthKey);
-  expenses.push(...(payload.expenses || []));
-  loans.push(...(payload.loans || []));
-  expenses.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  loans.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  loadedMonthKeys.add(monthKey);
-}
-
-function applySettingsPayload(payload) {
-  loanFriends = payload.loanFriends || [];
-  limits = payload.limits || {};
-  syncLoanFriendsFromLoans();
-}
-
-function markCurrentDataMonthsLoaded() {
-  loadedMonthKeys = new Set([
-    ...expenses.map(item => getMonthKey(item.date)).filter(Boolean),
-    ...loans.map(item => getMonthKey(item.date)).filter(Boolean)
-  ]);
 }
 
 function exportData() {
@@ -1749,1329 +1351,12 @@ function exportExcelData() {
   downloadFile(blob, "expense-data.xlsx");
 }
 
-function setSupabaseStatus(message) {
-  const status = document.getElementById("supabaseStatus");
-  if (status) status.innerText = message;
-}
-
-function setSupabaseAuthStatus(message) {
-  const status = document.getElementById("supabaseAuthStatus");
-  if (status) status.innerText = message;
-}
-
-function setSupabaseSyncStatus(message) {
-  const status = document.getElementById("supabaseSyncStatus");
-  if (status) status.innerText = message;
-}
-
-function setEncryptionStatus(message) {
-  const status = document.getElementById("encryptionStatus");
-  if (status) status.innerText = message;
-  const modalStatus = document.getElementById("encryptionModalStatus");
-  if (modalStatus) modalStatus.innerText = message;
-}
-
-function setRecoveryStatus(message) {
-  const status = document.getElementById("recoveryStatus");
-  if (status) status.innerText = message;
-}
-
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function getRememberedPhraseKey(email) {
-  const normalized = normalizeEmail(email);
-  return normalized ? `${REMEMBERED_PHRASE_PREFIX}${normalized}` : "";
-}
-
-function getRememberedEncryptionPhrase(email) {
-  const key = getRememberedPhraseKey(email);
-  if (!key) return "";
-
-  try {
-    return localStorage.getItem(key) || "";
-  } catch (_error) {
-    return "";
-  }
-}
-
-function rememberEncryptionPhrase(email, passphrase) {
-  const key = getRememberedPhraseKey(email);
-  if (!key || !passphrase) return;
-
-  try {
-    localStorage.setItem(key, passphrase);
-  } catch (_error) {
-    setEncryptionStatus("Browser storage is not available, so Remember me could not save the password.");
-  }
-}
-
-function forgetRememberedEncryptionPhrase(email) {
-  const key = getRememberedPhraseKey(email);
-  if (!key) return;
-
-  try {
-    localStorage.removeItem(key);
-  } catch (_error) {
-    // Nothing else to do; sign-out still clears the in-memory key.
-  }
-}
-
-function savePendingOAuthPhrase(passphrase, remember) {
-  try {
-    sessionStorage.setItem(PENDING_OAUTH_PHRASE_KEY, passphrase);
-    sessionStorage.setItem(PENDING_OAUTH_REMEMBER_KEY, remember ? "1" : "0");
-  } catch (_error) {
-    // If session storage is blocked, Google sign-in still works but unlock needs manual password entry.
-  }
-}
-
-function consumePendingOAuthPhrase(email) {
-  let passphrase = "";
-  let remember = false;
-
-  try {
-    passphrase = sessionStorage.getItem(PENDING_OAUTH_PHRASE_KEY) || "";
-    remember = sessionStorage.getItem(PENDING_OAUTH_REMEMBER_KEY) === "1";
-    sessionStorage.removeItem(PENDING_OAUTH_PHRASE_KEY);
-    sessionStorage.removeItem(PENDING_OAUTH_REMEMBER_KEY);
-  } catch (_error) {
-    return "";
-  }
-
-  if (!passphrase) return "";
-
-  currentEncryptionPassphrase = passphrase;
-  fillEncryptionPasswordInputs(passphrase);
-  syncRememberCheckboxes(remember);
-  if (remember) {
-    rememberEncryptionPhrase(email, passphrase);
-  }
-
-  return passphrase;
-}
-
-function syncRememberCheckboxes(checked) {
-  const signInRemember = document.getElementById("supabaseRememberPhrase");
-  const modalRemember = document.getElementById("modalRememberPhrase");
-  const recoveryRemember = document.getElementById("recoveryRememberPhrase");
-  if (signInRemember) signInRemember.checked = Boolean(checked);
-  if (modalRemember) modalRemember.checked = Boolean(checked);
-  if (recoveryRemember) recoveryRemember.checked = Boolean(checked);
-}
-
-function getEnteredEncryptionPassphrase() {
-  const signInPhrase = document.getElementById("supabaseEncryptionPassword")?.value || "";
-  const modalPhrase = document.getElementById("modalEncryptionPassword")?.value || "";
-  return modalPhrase || signInPhrase || currentEncryptionPassphrase || "";
-}
-
-function getRememberPreference() {
-  return Boolean(
-    document.getElementById("supabaseRememberPhrase")?.checked ||
-    document.getElementById("modalRememberPhrase")?.checked ||
-    document.getElementById("recoveryRememberPhrase")?.checked
-  );
-}
-
-function fillEncryptionPasswordInputs(passphrase) {
-  const signInInput = document.getElementById("supabaseEncryptionPassword");
-  const modalInput = document.getElementById("modalEncryptionPassword");
-  if (signInInput) signInInput.value = passphrase || "";
-  if (modalInput) modalInput.value = passphrase || "";
-}
-
-function loadRememberedPhraseForEnteredEmail() {
-  const email = document.getElementById("supabaseEmail")?.value || supabaseUser?.email || "";
-  const rememberedPhrase = getRememberedEncryptionPhrase(email);
-  if (!rememberedPhrase) return;
-
-  currentEncryptionPassphrase = rememberedPhrase;
-  fillEncryptionPasswordInputs(rememberedPhrase);
-  syncRememberCheckboxes(true);
-}
-
-async function autoUnlockEncryptedData() {
-  if (!supabaseUser || encryptionUnlocked) return;
-
-  const pendingOAuthPhrase = consumePendingOAuthPhrase(supabaseUser.email);
-  if (pendingOAuthPhrase) {
-    setEncryptionStatus("Unlocking encrypted data after Google sign-in...");
-    await unlockEncryptedData({ automatic: true });
-    return;
-  }
-
-  const rememberedPhrase = getRememberedEncryptionPhrase(supabaseUser.email);
-  if (rememberedPhrase) {
-    currentEncryptionPassphrase = rememberedPhrase;
-    fillEncryptionPasswordInputs(rememberedPhrase);
-    syncRememberCheckboxes(true);
-    setEncryptionStatus("Unlocking encrypted data with remembered password...");
-    await unlockEncryptedData({ automatic: true });
-    return;
-  }
-
-  openEncryptionPrompt();
-  setEncryptionStatus("Enter your encryption password to unlock Supabase data.");
-}
-
-function updateSyncBanner() {
-  const banner = document.getElementById("syncBanner");
-  if (!banner) return;
-
-  banner.style.display = supabaseUser && !encryptionUnlocked && encryptionPromptDismissed ? "block" : "none";
-}
-
-function openEncryptionPrompt() {
-  if (!supabaseUser || encryptionUnlocked) return;
-
-  const modal = document.getElementById("encryptionModal");
-  if (modal) modal.style.display = "block";
-  encryptionPromptDismissed = false;
-  updateSyncBanner();
-}
-
-function closeEncryptionPrompt() {
-  const modal = document.getElementById("encryptionModal");
-  if (modal) modal.style.display = "none";
-
-  if (supabaseUser && !encryptionUnlocked) {
-    encryptionPromptDismissed = true;
-    setEncryptionStatus("Encrypted data is locked. Open the popup to unlock it.");
-    setSupabaseSyncStatus("Encrypted data is locked. Unlock it before changing data.");
-  }
-
-  updateSyncBanner();
-  updateSupabaseControls();
-}
-
-function openRecoveryPrompt() {
-  if (!supabaseUser) {
-    setEncryptionStatus("Sign in with Supabase before using recovery.");
-    return;
-  }
-
-  const modal = document.getElementById("recoveryModal");
-  if (modal) modal.style.display = "block";
-  setRecoveryStatus("Enter your recovery key and a new encryption password.");
-}
-
-function closeRecoveryPrompt() {
-  const modal = document.getElementById("recoveryModal");
-  if (modal) modal.style.display = "none";
-}
-
-function showRecoveryKeyPrompt(recoveryKey) {
-  latestRecoveryKey = recoveryKey || "";
-  const output = document.getElementById("generatedRecoveryKey");
-  if (output) output.value = latestRecoveryKey;
-  const modal = document.getElementById("recoveryKeyModal");
-  if (modal) modal.style.display = "block";
-}
-
-function closeRecoveryKeyPrompt() {
-  const modal = document.getElementById("recoveryKeyModal");
-  if (modal) modal.style.display = "none";
-}
-
-function downloadRecoveryKey() {
-  if (!latestRecoveryKey) return;
-
-  downloadFile(
-    new Blob([`Expense Tracker Recovery Key\n\n${latestRecoveryKey}\n`], { type: "text/plain" }),
-    "expense-tracker-recovery-key.txt"
-  );
-}
-
-function updateSupabaseControls() {
-  const signInBtn = document.getElementById("supabaseSignInBtn");
-  const googleSignInBtn = document.getElementById("supabaseGoogleSignInBtn");
-  const signOutBtn = document.getElementById("supabaseSignOutBtn");
-  const emailInput = document.getElementById("supabaseEmail");
-  const passwordInput = document.getElementById("supabaseEncryptionPassword");
-  const rememberInput = document.getElementById("supabaseRememberPhrase");
-  const userEl = document.getElementById("supabaseUser");
-  const unlockBtn = document.getElementById("encryptionUnlockBtn");
-  const openPromptBtn = document.getElementById("openEncryptionPromptBtn");
-
-  const coolingDown = Date.now() < magicLinkCooldownUntil;
-  if (signInBtn) {
-    signInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
-    signInBtn.disabled = coolingDown;
-  }
-  if (googleSignInBtn) {
-    googleSignInBtn.style.display = supabaseUser || supabaseMagicLinkSent ? "none" : "block";
-    googleSignInBtn.disabled = coolingDown;
-  }
-  if (signOutBtn) signOutBtn.style.display = supabaseUser ? "block" : "none";
-  if (emailInput) emailInput.style.display = supabaseUser ? "none" : "block";
-  if (passwordInput) passwordInput.style.display = supabaseUser ? "none" : "block";
-  if (rememberInput) {
-    const label = rememberInput.closest("label");
-    if (label) label.style.display = supabaseUser ? "none" : "inline-flex";
-  }
-  if (userEl) userEl.innerText = supabaseUser ? `Signed in as ${supabaseUser.email || supabaseUser.id}` : "";
-  if (unlockBtn) {
-    unlockBtn.disabled = !supabaseUser || encryptionUnlocked;
-  }
-  if (openPromptBtn) {
-    openPromptBtn.style.display = supabaseUser && !encryptionUnlocked ? "block" : "none";
-  }
-}
-
-function startMagicLinkCooldown(seconds = 60) {
-  magicLinkCooldownUntil = Date.now() + seconds * 1000;
-  clearInterval(magicLinkCooldownTimer);
-
-  const tick = () => {
-    const remaining = Math.max(0, Math.ceil((magicLinkCooldownUntil - Date.now()) / 1000));
-    const signInBtn = document.getElementById("supabaseSignInBtn");
-
-    if (signInBtn && !supabaseUser && !supabaseMagicLinkSent) {
-      signInBtn.disabled = remaining > 0;
-      signInBtn.innerText = remaining > 0 ? `Try Again in ${remaining}s` : "Sign In";
-    }
-
-    if (remaining <= 0) {
-      clearInterval(magicLinkCooldownTimer);
-      magicLinkCooldownTimer = null;
-      updateSupabaseControls();
-    }
-  };
-
-  tick();
-  magicLinkCooldownTimer = setInterval(tick, 1000);
-}
-
-function resetSupabaseSyncState() {
-  supabaseHasUnsyncedChanges = false;
-  supabaseSyncQueued = false;
-  clearTimeout(supabaseSyncTimer);
-  resetEncryptionState();
-
-  updateSyncBanner();
-  updateSupabaseControls();
-}
-
-function resetEncryptionState() {
-  encryptionKey = null;
-  encryptionRawKeyBytes = null;
-  encryptionSalt = "";
-  encryptionUnlocked = false;
-  encryptionPromptDismissed = false;
-  const modal = document.getElementById("encryptionModal");
-  if (modal) modal.style.display = "none";
-  const recoveryModal = document.getElementById("recoveryModal");
-  if (recoveryModal) recoveryModal.style.display = "none";
-  setEncryptionStatus(supabaseUser ? "Enter your encryption password to unlock data." : "Sign in and enter your encryption password to unlock data.");
-}
-
-function saveSupabaseSettings() {
-  // Supabase settings are built into this page so no browser storage is needed.
-}
-
-function loadSupabaseSettings() {
-  const urlEl = document.getElementById("supabaseUrl");
-  const keyEl = document.getElementById("supabaseKey");
-  if (urlEl) urlEl.value = SUPABASE_DEFAULT_URL;
-  if (keyEl) keyEl.value = SUPABASE_DEFAULT_KEY;
-}
-
-function updateSupabaseConnectionState(connected, message) {
-  supabaseConnected = connected;
-  setSupabaseStatus(message);
-  if (!connected) {
-    supabaseUser = null;
-    supabaseMagicLinkSent = false;
-    magicLinkCooldownUntil = 0;
-    clearInterval(magicLinkCooldownTimer);
-    resetSupabaseSyncState();
-  }
-  updateSupabaseControls();
-  updateSyncBanner();
-}
-
-function withTimeout(promise, timeoutMs, message) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(message)), timeoutMs);
-    })
-  ]);
-}
-
-async function applySupabaseSession(session) {
-  supabaseUser = session ? session.user : null;
-  if (supabaseUser?.email) {
-    const emailInput = document.getElementById("supabaseEmail");
-    if (emailInput) emailInput.value = supabaseUser.email;
-  }
-  if (supabaseUser) supabaseMagicLinkSent = false;
-
-  setSupabaseAuthStatus(supabaseUser ? "Signed in" : "Not signed in");
-  resetEncryptionState();
-  updateSupabaseControls();
-  updateSyncBanner();
-
-  if (supabaseUser && supabaseConnected) {
-    setSupabaseSyncStatus("Unlock encryption to load Supabase data.");
-    await autoUnlockEncryptedData();
-    return;
-  }
-
-  currentEncryptionPassphrase = "";
-  fillEncryptionPasswordInputs("");
-  syncRememberCheckboxes(false);
-  expenses = [];
-  loans = [];
-  loanFriends = [];
-  limits = {};
-  render();
-  setSupabaseSyncStatus("Sign in and unlock encryption to load Supabase data.");
-  updateSupabaseControls();
-  updateSyncBanner();
-}
-
-async function connectSupabase() {
-  const url = document.getElementById("supabaseUrl")?.value.trim();
-  const key = document.getElementById("supabaseKey")?.value.trim();
-
-  if (!url || !key) {
-    setSupabaseStatus("Enter the Supabase Project URL and Publishable Key first.");
-    return;
-  }
-
-  try {
-    if (!window.supabase?.createClient) {
-      throw new Error("Supabase library did not load. Check your internet connection and refresh the page.");
-    }
-
-    if (!supabaseClient) {
-      supabaseClient = window.supabase.createClient(url, key, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        }
-      });
-    }
-
-    saveSupabaseSettings();
-    updateSupabaseConnectionState(true, "Supabase connected.");
-
-    if (!supabaseAuthSubscription) {
-      const { data: authListener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-        setTimeout(() => {
-          applySupabaseSession(session).catch(error => {
-            setSupabaseAuthStatus(`Supabase session update failed: ${error.message}`);
-            setSupabaseSyncStatus(`Supabase session update failed: ${error.message}`);
-            updateSupabaseControls();
-            updateSyncBanner();
-          });
-        }, 0);
-      });
-      supabaseAuthSubscription = authListener?.subscription || true;
-    }
-
-    try {
-      const { data, error } = await withTimeout(
-        supabaseClient.auth.getSession(),
-        20000,
-        "Supabase session check timed out. You can still sign in again."
-      );
-      if (error) throw error;
-      await applySupabaseSession(data.session);
-    } catch (sessionError) {
-      supabaseUser = null;
-      supabaseMagicLinkSent = false;
-      resetEncryptionState();
-      setSupabaseAuthStatus(sessionError.message);
-      setSupabaseSyncStatus("Supabase is connected, but the saved session could not be restored. Sign in again if needed.");
-      updateSupabaseControls();
-      updateSyncBanner();
-    }
-  } catch (error) {
-    updateSupabaseConnectionState(false, `Supabase connection failed: ${error.message}`);
-    setSupabaseAuthStatus("Supabase connection failed.");
-  }
-}
-
-async function ensureSupabaseConnected() {
-  if (supabaseClient && supabaseConnected) return true;
-
-  const savedUrl = SUPABASE_DEFAULT_URL;
-  const savedKey = SUPABASE_DEFAULT_KEY;
-  if (!savedUrl || !savedKey) return false;
-
-  document.getElementById("supabaseUrl").value = savedUrl;
-  document.getElementById("supabaseKey").value = savedKey;
-  await connectSupabase();
-  return Boolean(supabaseClient && supabaseConnected);
-}
-
-async function signInSupabase() {
-  const ready = await ensureSupabaseConnected();
-  if (!ready) {
-    setSupabaseAuthStatus("Connect Supabase first.");
-    return;
-  }
-
-  const email = document.getElementById("supabaseEmail")?.value.trim();
-  if (!email) {
-    setSupabaseAuthStatus("Enter your email address first.");
-    return;
-  }
-
-  const passphrase = document.getElementById("supabaseEncryptionPassword")?.value || "";
-  if (!passphrase) {
-    setSupabaseAuthStatus("Enter your password first.");
-    setEncryptionStatus("The password is required because it unlocks encrypted data.");
-    return;
-  }
-
-  try {
-    currentEncryptionPassphrase = passphrase;
-    fillEncryptionPasswordInputs(passphrase);
-    syncRememberCheckboxes(getRememberPreference());
-    if (getRememberPreference()) {
-      rememberEncryptionPhrase(email, passphrase);
-    } else {
-      forgetRememberedEncryptionPhrase(email);
-    }
-
-    supabaseMagicLinkSent = true;
-    magicLinkCooldownUntil = 0;
-    updateSupabaseControls();
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: SUPABASE_REDIRECT_URL
-      }
-    });
-    if (error) throw error;
-    setSupabaseAuthStatus("Sign-in link sent. Check your email to finish signing in.");
-  } catch (error) {
-    supabaseMagicLinkSent = false;
-    updateSupabaseControls();
-    if (String(error.message || "").toLowerCase().includes("rate limit")) {
-      startMagicLinkCooldown(60);
-    }
-    setSupabaseAuthStatus(`Supabase sign-in failed: ${error.message}`);
-  }
-}
-
-async function signInWithGoogle() {
-  const ready = await ensureSupabaseConnected();
-  if (!ready) {
-    setSupabaseAuthStatus("Connect Supabase first.");
-    return;
-  }
-
-  const passphrase = document.getElementById("supabaseEncryptionPassword")?.value || "";
-  if (!passphrase) {
-    setSupabaseAuthStatus("Enter your password first.");
-    setEncryptionStatus("The password is required because it unlocks encrypted data after Google sign-in.");
-    return;
-  }
-
-  try {
-    currentEncryptionPassphrase = passphrase;
-    fillEncryptionPasswordInputs(passphrase);
-    syncRememberCheckboxes(getRememberPreference());
-    savePendingOAuthPhrase(passphrase, getRememberPreference());
-
-    supabaseMagicLinkSent = true;
-    updateSupabaseControls();
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: SUPABASE_REDIRECT_URL
-      }
-    });
-    if (error) throw error;
-    setSupabaseAuthStatus("Opening Google sign-in...");
-  } catch (error) {
-    supabaseMagicLinkSent = false;
-    updateSupabaseControls();
-    setSupabaseAuthStatus(`Google sign-in failed: ${error.message}`);
-  }
-}
-
-async function signOutSupabase() {
-  if (!supabaseClient) {
-    setSupabaseAuthStatus("Supabase is not connected.");
-    return;
-  }
-
-  try {
-    const signedInEmail = supabaseUser?.email || document.getElementById("supabaseEmail")?.value || "";
-    await supabaseClient.auth.signOut();
-    forgetRememberedEncryptionPhrase(signedInEmail);
-    currentEncryptionPassphrase = "";
-    fillEncryptionPasswordInputs("");
-    syncRememberCheckboxes(false);
-    const recoveryKeyInput = document.getElementById("recoveryKeyInput");
-    const newPasswordInput = document.getElementById("newEncryptionPassword");
-    if (recoveryKeyInput) recoveryKeyInput.value = "";
-    if (newPasswordInput) newPasswordInput.value = "";
-    supabaseUser = null;
-    supabaseMagicLinkSent = false;
-    resetSupabaseSyncState();
-    expenses = [];
-    loans = [];
-    loanFriends = [];
-    limits = {};
-    render();
-    setSupabaseAuthStatus("Not signed in");
-    setSupabaseSyncStatus("Sign in and unlock encryption to load Supabase data.");
-    updateSupabaseControls();
-  } catch (error) {
-    setSupabaseAuthStatus(`Supabase sign-out failed: ${error.message}`);
-  }
-}
-
-function canWriteSupabaseData() {
-  if (supabaseConnected && supabaseUser && encryptionUnlocked) return true;
-
-  if (supabaseConnected && supabaseUser && !encryptionUnlocked) {
-    setSupabaseSyncStatus("Unlock encrypted data before changing anything.");
-    alert("Unlock encrypted data with your password before changing anything.");
-    return false;
-  }
-
-  setSupabaseSyncStatus("Sign in with Supabase before changing data.");
-  alert("Sign in with Supabase before changing data.");
-  return false;
-}
-
-function bytesToBase64(bytes) {
-  let binary = "";
-  bytes.forEach(byte => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
-
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  return Uint8Array.from(binary, char => char.charCodeAt(0));
-}
-
-function bytesToBase64Url(bytes) {
-  return bytesToBase64(bytes)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function base64UrlToBytes(value) {
-  let base64 = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4) base64 += "=";
-  return base64ToBytes(base64);
-}
-
-function makeRandomBase64(length) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytesToBase64(bytes);
-}
-
-function makeRecoveryKey() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const compact = bytesToBase64Url(bytes).toUpperCase();
-  return compact.match(/.{1,4}/g).join("-");
-}
-
-function normalizeRecoveryKey(value) {
-  return String(value || "").trim().replace(/[\s-]/g, "").toUpperCase();
-}
-
-async function deriveEncryptionKey(passphrase, salt) {
-  const encodedPassphrase = new TextEncoder().encode(passphrase);
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    encodedPassphrase,
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: base64ToBytes(salt),
-      iterations: 250000,
-      hash: "SHA-256"
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-}
-
-async function importDataEncryptionKey(rawBytes) {
-  encryptionRawKeyBytes = new Uint8Array(rawBytes);
-  encryptionKey = await crypto.subtle.importKey(
-    "raw",
-    encryptionRawKeyBytes,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"]
-  );
-  encryptionSalt = WRAPPED_KEY_SALT;
-}
-
-async function generateDataEncryptionKey() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  await importDataEncryptionKey(bytes);
-}
-
-async function wrapRawDataKey(secret) {
-  if (!encryptionRawKeyBytes) throw new Error("Data key is not ready.");
-
-  const salt = makeRandomBase64(16);
-  const iv = makeRandomBase64(12);
-  const wrappingKey = await deriveEncryptionKey(secret, salt);
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: base64ToBytes(iv) },
-    wrappingKey,
-    encryptionRawKeyBytes
-  );
-
-  return {
-    salt,
-    iv,
-    wrapped_key: bytesToBase64(new Uint8Array(ciphertext))
-  };
-}
-
-async function unwrapRawDataKey(secret, wrapper) {
-  const wrappingKey = await deriveEncryptionKey(secret, wrapper.salt);
-  const rawKey = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64ToBytes(wrapper.iv) },
-    wrappingKey,
-    base64ToBytes(wrapper.wrapped_key)
-  );
-  await importDataEncryptionKey(new Uint8Array(rawKey));
-}
-
-function getLegacyEmailPassphrase() {
-  const email = supabaseUser?.email || "";
-  return [...email].reverse().join("");
-}
-
-async function fetchKeyWrapper() {
-  const { data, error } = await supabaseClient
-    .from(KEY_WRAPPER_TABLE)
-    .select("password_salt,password_iv,password_wrapped_key,recovery_salt,recovery_iv,recovery_wrapped_key")
-    .eq("user_id", supabaseUser.id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
-async function saveKeyWrapper(passphrase, recoveryKey = "") {
-  const cleanRecoveryKey = normalizeRecoveryKey(recoveryKey || makeRecoveryKey());
-  const passwordWrapper = await wrapRawDataKey(passphrase);
-  const recoveryWrapper = await wrapRawDataKey(cleanRecoveryKey);
-
-  const { error } = await supabaseClient
-    .from(KEY_WRAPPER_TABLE)
-    .upsert({
-      user_id: supabaseUser.id,
-      version: 2,
-      password_salt: passwordWrapper.salt,
-      password_iv: passwordWrapper.iv,
-      password_wrapped_key: passwordWrapper.wrapped_key,
-      recovery_salt: recoveryWrapper.salt,
-      recovery_iv: recoveryWrapper.iv,
-      recovery_wrapped_key: recoveryWrapper.wrapped_key,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "user_id" });
-
-  if (error) throw error;
-  return cleanRecoveryKey.match(/.{1,4}/g).join("-");
-}
-
-async function unlockDataKeyWithPassword(passphrase, wrapper) {
-  await unwrapRawDataKey(passphrase, {
-    salt: wrapper.password_salt,
-    iv: wrapper.password_iv,
-    wrapped_key: wrapper.password_wrapped_key
-  });
-}
-
-async function unlockDataKeyWithRecovery(recoveryKey, wrapper) {
-  await unwrapRawDataKey(normalizeRecoveryKey(recoveryKey), {
-    salt: wrapper.recovery_salt,
-    iv: wrapper.recovery_iv,
-    wrapped_key: wrapper.recovery_wrapped_key
-  });
-}
-
-async function fetchEncryptedBackup() {
-  const { data, error } = await supabaseClient
-    .from(ENCRYPTED_BACKUP_TABLE)
-    .select("salt,iv,ciphertext")
-    .eq("user_id", supabaseUser.id)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
-async function fetchFirstMonthlyEncryptedRow() {
-  const { data, error } = await supabaseClient
-    .from(ENCRYPTED_MONTHLY_TABLE)
-    .select("chunk_key,salt,iv,ciphertext")
-    .eq("user_id", supabaseUser.id)
-    .limit(1);
-
-  if (error) throw error;
-  return (data || [])[0] || null;
-}
-
-async function fetchMonthlyEncryptedRows(chunkKeys) {
-  if (!chunkKeys.length) return [];
-
-  const { data, error } = await supabaseClient
-    .from(ENCRYPTED_MONTHLY_TABLE)
-    .select("chunk_key,salt,iv,ciphertext")
-    .eq("user_id", supabaseUser.id)
-    .in("chunk_key", chunkKeys);
-
-  if (error) throw error;
-  return data || [];
-}
-
-async function fetchAllMonthlyEncryptedRows() {
-  const { data, error } = await supabaseClient
-    .from(ENCRYPTED_MONTHLY_TABLE)
-    .select("chunk_key,salt,iv,ciphertext")
-    .eq("user_id", supabaseUser.id);
-
-  if (error) throw error;
-  return data || [];
-}
-
-async function encryptBackupData(data) {
-  const iv = makeRandomBase64(12);
-  const plaintext = new TextEncoder().encode(JSON.stringify(data));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: base64ToBytes(iv) },
-    encryptionKey,
-    plaintext
-  );
-
-  return {
-    user_id: supabaseUser.id,
-    salt: encryptionSalt,
-    iv,
-    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
-    updated_at: new Date().toISOString()
-  };
-}
-
-async function encryptMonthlyChunk(chunkKey, data) {
-  const encrypted = await encryptBackupData(data);
-  return {
-    user_id: supabaseUser.id,
-    chunk_key: chunkKey,
-    salt: encrypted.salt,
-    iv: encrypted.iv,
-    ciphertext: encrypted.ciphertext,
-    updated_at: encrypted.updated_at
-  };
-}
-
-async function decryptBackupData(record) {
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64ToBytes(record.iv) },
-    encryptionKey,
-    base64ToBytes(record.ciphertext)
-  );
-
-  return JSON.parse(new TextDecoder().decode(plaintext));
-}
-
-function mapExpenseRowToLocal(row) {
-  return {
-    id: row.id,
-    date: row.expense_date,
-    desc: row.description || "",
-    category: row.category,
-    type: row.expense_type,
-    amount: Number(row.amount)
-  };
-}
-
-function mapLoanRowToLocal(row) {
-  return {
-    id: row.id,
-    date: row.loan_date,
-    friend: row.friend,
-    type: row.loan_type,
-    desc: row.notes || "",
-    amount: Number(row.amount)
-  };
-}
-
-async function loadLegacySupabaseBackup() {
-  const [expensesResult, loansResult, limitsResult] = await Promise.all([
-    supabaseClient.from("expenses").select("*").order("expense_date", { ascending: false }),
-    supabaseClient.from("loans").select("*").order("loan_date", { ascending: false }),
-    supabaseClient.from("limits").select("*")
-  ]);
-
-  if (expensesResult.error) throw expensesResult.error;
-  if (loansResult.error) throw loansResult.error;
-  if (limitsResult.error) throw limitsResult.error;
-
-  const legacyLimits = {};
-  (limitsResult.data || []).forEach(item => {
-    legacyLimits[item.category] = Number(item.amount);
-  });
-
-  return {
-    expenses: (expensesResult.data || []).map(mapExpenseRowToLocal),
-    loans: (loansResult.data || []).map(mapLoanRowToLocal),
-    loanFriends: [],
-    limits: legacyLimits
-  };
-}
-
-function hasBackupContent(data) {
-  return Boolean(
-    (data.expenses && data.expenses.length) ||
-    (data.loans && data.loans.length) ||
-    (data.loanFriends && data.loanFriends.length) ||
-    (data.limits && Object.keys(data.limits).length)
-  );
-}
-
-async function purgeLegacySupabaseTables() {
-  const results = await Promise.all([
-    supabaseClient.from("expenses").delete().eq("user_id", supabaseUser.id),
-    supabaseClient.from("loans").delete().eq("user_id", supabaseUser.id),
-    supabaseClient.from("limits").delete().eq("user_id", supabaseUser.id)
-  ]);
-
-  const failedResult = results.find(result => result.error);
-  if (failedResult) throw failedResult.error;
-}
-
-async function saveEncryptedMonthlyChunks(monthKeys = [...loadedMonthKeys]) {
-  if (!encryptionUnlocked || !encryptionKey) {
-    throw new Error("Unlock encrypted data before saving.");
-  }
-
-  const keys = [...new Set(monthKeys.filter(Boolean))];
-  const rows = [await encryptMonthlyChunk(SETTINGS_CHUNK_KEY, buildSettingsPayload())];
-
-  for (const key of keys) {
-    rows.push(await encryptMonthlyChunk(key, buildMonthlyPayload(key)));
-    loadedMonthKeys.add(key);
-  }
-
-  const { error } = await supabaseClient
-    .from(ENCRYPTED_MONTHLY_TABLE)
-    .upsert(rows, { onConflict: "user_id,chunk_key" });
-
-  if (error) throw error;
-}
-
-async function loadEncryptedMonthlyChunks(monthKeys) {
-  const keysToLoad = [...new Set(monthKeys.filter(key => key && !loadedMonthKeys.has(key)))];
-  const chunkKeys = [...keysToLoad, SETTINGS_CHUNK_KEY];
-  const rows = await fetchMonthlyEncryptedRows(chunkKeys);
-
-  for (const row of rows) {
-    const payload = await decryptBackupData(row);
-    if (row.chunk_key === SETTINGS_CHUNK_KEY) {
-      applySettingsPayload(payload);
-    } else {
-      mergeMonthlyPayload(payload, row.chunk_key);
-    }
-  }
-
-  keysToLoad.forEach(key => {
-    if (!rows.some(row => row.chunk_key === key)) loadedMonthKeys.add(key);
-  });
-
-  render();
-  renderAnalytics();
-}
-
-async function loadAllEncryptedMonthlyChunks() {
-  const rows = await fetchAllMonthlyEncryptedRows();
-  const monthRows = rows.filter(row => row.chunk_key !== SETTINGS_CHUNK_KEY);
-  const settingsRow = rows.find(row => row.chunk_key === SETTINGS_CHUNK_KEY);
-
-  if (settingsRow) applySettingsPayload(await decryptBackupData(settingsRow));
-
-  for (const row of monthRows) {
-    mergeMonthlyPayload(await decryptBackupData(row), row.chunk_key);
-  }
-
-  render();
-  renderAnalytics();
-}
-
-async function migrateBackupDataToMonthlyChunks(data) {
-  applyBackupData(data);
-  markCurrentDataMonthsLoaded();
-  await saveEncryptedMonthlyChunks([...loadedMonthKeys]);
-}
-
-async function decryptLegacyBackupWithPassphrase(passphrase, monthlyRecord, encryptedRecord) {
-  encryptionSalt = monthlyRecord ? monthlyRecord.salt : encryptedRecord ? encryptedRecord.salt : makeRandomBase64(16);
-  encryptionKey = await deriveEncryptionKey(passphrase, encryptionSalt);
-  encryptionRawKeyBytes = null;
-
-  if (monthlyRecord) {
-    expenses = [];
-    loans = [];
-    loanFriends = [];
-    limits = {};
-    loadedMonthKeys = new Set();
-    await loadAllEncryptedMonthlyChunks();
-    return getBackupData();
-  }
-
-  if (encryptedRecord) {
-    return decryptBackupData(encryptedRecord);
-  }
-
-  return loadLegacySupabaseBackup();
-}
-
-async function unlockLegacyBackupData(passphrase, monthlyRecord, encryptedRecord) {
-  const passphrases = [passphrase];
-  const oldEmailPassphrase = getLegacyEmailPassphrase();
-  if (oldEmailPassphrase && oldEmailPassphrase !== passphrase) {
-    passphrases.push(oldEmailPassphrase);
-  }
-
-  let lastError = null;
-  for (const candidate of passphrases) {
-    try {
-      return await decryptLegacyBackupWithPassphrase(candidate, monthlyRecord, encryptedRecord);
-    } catch (error) {
-      lastError = error;
-      expenses = [];
-      loans = [];
-      loanFriends = [];
-      limits = {};
-      loadedMonthKeys = new Set();
-    }
-  }
-
-  throw lastError || new Error("The password could not unlock existing encrypted data.");
-}
-
-async function saveEncryptedBackupData() {
-  if (!encryptionUnlocked || !encryptionKey) {
-    throw new Error("Unlock encrypted data before saving.");
-  }
-
-  const keys = new Set([
-    ...loadedMonthKeys,
-    ...getActiveMonthKeys()
-  ]);
-  await saveEncryptedMonthlyChunks([...keys]);
-}
-
-async function exportEncryptedData() {
-  if (!encryptionUnlocked || !encryptionKey) {
-    alert("Unlock encrypted data before downloading an encrypted vault.");
-    return;
-  }
-
-  try {
-    await loadAllEncryptedMonthlyChunks();
-    const encryptedRow = await encryptBackupData(getBackupData());
-    const vault = {
-      version: 1,
-      algorithm: "AES-GCM",
-      keyDerivation: "PBKDF2-SHA256",
-      iterations: 250000,
-      salt: encryptedRow.salt,
-      iv: encryptedRow.iv,
-      ciphertext: encryptedRow.ciphertext,
-      exportedAt: encryptedRow.updated_at
-    };
-
-    downloadFile(
-      new Blob([JSON.stringify(vault, null, 2)], { type: "application/json" }),
-      "expense-encrypted-vault.json"
-    );
-  } catch (error) {
-    alert(`Encrypted export failed: ${error.message}`);
-  }
-}
-
-async function unlockEncryptedData(options = {}) {
-  const ready = await ensureSupabaseConnected();
-  if (!ready || !supabaseUser) {
-    setEncryptionStatus("Sign in with Supabase first.");
-    return;
-  }
-
-  if (!crypto.subtle) {
-    setEncryptionStatus("This browser does not support Web Crypto encryption.");
-    return;
-  }
-
-  const passphrase = getEnteredEncryptionPassphrase();
-  if (!passphrase) {
-    setEncryptionStatus("Enter your encryption password to unlock data.");
-    return;
-  }
-
-  try {
-    setEncryptionStatus("Unlocking encrypted data...");
-    setSupabaseSyncStatus("Unlocking encrypted Supabase data...");
-
-    const keyWrapper = await fetchKeyWrapper();
-    const monthlyRecord = await fetchFirstMonthlyEncryptedRow();
-    const encryptedRecord = monthlyRecord ? null : await fetchEncryptedBackup();
-    currentEncryptionPassphrase = passphrase;
-
-    if (keyWrapper) {
-      await unlockDataKeyWithPassword(passphrase, keyWrapper);
-      encryptionUnlocked = true;
-      expenses = [];
-      loans = [];
-      loanFriends = [];
-      limits = {};
-      loadedMonthKeys = new Set();
-      await loadEncryptedMonthlyChunks(getActiveMonthKeys());
-      setEncryptionStatus("Encrypted data unlocked.");
-      setSupabaseSyncStatus("Loaded current encrypted month from Supabase. Wider filters load more months only when needed.");
-    } else {
-      const legacyData = await unlockLegacyBackupData(passphrase, monthlyRecord, encryptedRecord);
-      await generateDataEncryptionKey();
-      const recoveryKey = await saveKeyWrapper(passphrase);
-      encryptionUnlocked = true;
-
-      if (hasBackupContent(legacyData)) {
-        await migrateBackupDataToMonthlyChunks(legacyData);
-        if (!monthlyRecord && !encryptedRecord) {
-          await purgeLegacySupabaseTables();
-        }
-        setEncryptionStatus("Encrypted data unlocked.");
-        setSupabaseSyncStatus("Existing data was upgraded with password and recovery-key protection.");
-      } else {
-        loadedMonthKeys = new Set(getActiveMonthKeys());
-        await saveEncryptedMonthlyChunks([...loadedMonthKeys]);
-        render();
-        setEncryptionStatus("Encrypted data unlocked.");
-        setSupabaseSyncStatus("Encrypted monthly storage is ready. Changes save automatically.");
-      }
-
-      showRecoveryKeyPrompt(recoveryKey);
-    }
-
-    syncLoanFriendsFromLoans();
-    render();
-    supabaseHasUnsyncedChanges = false;
-    encryptionPromptDismissed = false;
-    if (getRememberPreference()) {
-      rememberEncryptionPhrase(supabaseUser.email, passphrase);
-    } else {
-      forgetRememberedEncryptionPhrase(supabaseUser.email);
-    }
-    const modal = document.getElementById("encryptionModal");
-    if (modal) modal.style.display = "none";
-    updateSupabaseControls();
-    updateSyncBanner();
-  } catch (error) {
-    encryptionKey = null;
-    encryptionRawKeyBytes = null;
-    encryptionSalt = "";
-    encryptionUnlocked = false;
-    currentEncryptionPassphrase = "";
-    if (options.automatic) {
-      openEncryptionPrompt();
-    }
-    updateSupabaseControls();
-    updateSyncBanner();
-    setEncryptionStatus(`Unlock failed: ${error.message}`);
-    setSupabaseSyncStatus(`Encrypted data unlock failed: ${error.message}`);
-  }
-}
-
-async function recoverWithRecoveryKey() {
-  const ready = await ensureSupabaseConnected();
-  if (!ready || !supabaseUser) {
-    setRecoveryStatus("Sign in with Supabase before using recovery.");
-    return;
-  }
-
-  const recoveryKey = document.getElementById("recoveryKeyInput")?.value || "";
-  const newPassphrase = document.getElementById("newEncryptionPassword")?.value || "";
-  if (!recoveryKey || !newPassphrase) {
-    setRecoveryStatus("Enter both the recovery key and a new password.");
-    return;
-  }
-
-  try {
-    setRecoveryStatus("Checking recovery key...");
-    const keyWrapper = await fetchKeyWrapper();
-    if (!keyWrapper) {
-      setRecoveryStatus("No recovery key is available for this older encrypted vault. Unlock once with the old encryption phrase to create one.");
-      return;
-    }
-
-    await unlockDataKeyWithRecovery(recoveryKey, keyWrapper);
-    await saveKeyWrapper(newPassphrase, recoveryKey);
-    encryptionUnlocked = true;
-    currentEncryptionPassphrase = newPassphrase;
-    fillEncryptionPasswordInputs(newPassphrase);
-
-    if (getRememberPreference()) {
-      rememberEncryptionPhrase(supabaseUser.email, newPassphrase);
-    } else {
-      forgetRememberedEncryptionPhrase(supabaseUser.email);
-    }
-
-    expenses = [];
-    loans = [];
-    loanFriends = [];
-    limits = {};
-    loadedMonthKeys = new Set();
-    await loadEncryptedMonthlyChunks(getActiveMonthKeys());
-
-    closeRecoveryPrompt();
-    const encryptionModal = document.getElementById("encryptionModal");
-    if (encryptionModal) encryptionModal.style.display = "none";
-    encryptionPromptDismissed = false;
-    setEncryptionStatus("Encrypted data recovered with recovery key.");
-    setSupabaseSyncStatus("Recovery successful. The new password is now active.");
-    updateSupabaseControls();
-    updateSyncBanner();
-  } catch (error) {
-    encryptionKey = null;
-    encryptionRawKeyBytes = null;
-    encryptionSalt = "";
-    encryptionUnlocked = false;
-    setRecoveryStatus(`Recovery failed: ${error.message}`);
-  }
-}
-
-async function saveSupabaseBackup() {
-  const ready = await ensureSupabaseConnected();
-  if (!ready || !supabaseUser) {
-    setSupabaseSyncStatus("Sign in with Supabase before saving data.");
-    return;
-  }
-  if (!encryptionUnlocked) {
-    setSupabaseSyncStatus("Unlock encrypted data before saving.");
-    return;
-  }
-
-  try {
-    setSupabaseSyncStatus("Encrypting and saving to Supabase...");
-    await saveEncryptedBackupData();
-    supabaseHasUnsyncedChanges = false;
-    setSupabaseSyncStatus("Encrypted data saved to Supabase.");
-  } catch (error) {
-    setSupabaseSyncStatus(`Supabase save failed: ${error.message}`);
-  }
-}
-
-async function autoSaveSupabaseBackup() {
-  if (!supabaseHasUnsyncedChanges || !supabaseUser || !encryptionUnlocked) return;
-
-  if (supabaseSyncInProgress) {
-    supabaseSyncQueued = true;
-    return;
-  }
-
-  supabaseSyncInProgress = true;
-  setSupabaseSyncStatus("Encrypting and syncing to Supabase...");
-
-  try {
-    await saveEncryptedBackupData();
-    supabaseHasUnsyncedChanges = false;
-    setSupabaseSyncStatus("Encrypted data synced to Supabase.");
-  } catch (error) {
-    updateSupabaseControls();
-    setSupabaseSyncStatus(`Supabase auto sync failed: ${error.message}`);
-  } finally {
-    supabaseSyncInProgress = false;
-
-    if (supabaseSyncQueued) {
-      supabaseSyncQueued = false;
-      scheduleSupabaseAutoSync();
-    }
-  }
-}
-
-async function restoreSupabaseBackup() {
-  if (supabaseLoadInProgress) return;
-
-  const ready = await ensureSupabaseConnected();
-  if (!ready || !supabaseUser) {
-    setSupabaseSyncStatus("Sign in with Supabase to load data.");
-    return;
-  }
-  if (!encryptionUnlocked) {
-    setSupabaseSyncStatus("Unlock encrypted data before loading from Supabase.");
-    return;
-  }
-
-  supabaseLoadInProgress = true;
-  try {
-    setSupabaseSyncStatus("Loading encrypted month chunks from Supabase...");
-    await loadEncryptedMonthlyChunks(getActiveMonthKeys());
-
-    render();
-    supabaseHasUnsyncedChanges = false;
-    setSupabaseSyncStatus("Loaded encrypted month chunks from Supabase. Changes save automatically.");
-  } catch (error) {
-    setSupabaseSyncStatus(`Supabase load failed: ${error.message}`);
-  } finally {
-    supabaseLoadInProgress = false;
-  }
-}
-
 function noteLocalDataChanged() {
-  if (!supabaseConnected || !supabaseUser || !encryptionUnlocked) {
-    setSupabaseSyncStatus("Sign in and unlock encrypted data before changing data.");
-    return;
-  }
-
-  scheduleSupabaseAutoSync();
-}
-
-function scheduleSupabaseAutoSync() {
-  if (!supabaseConnected || !supabaseUser || !encryptionUnlocked) return;
-
-  supabaseHasUnsyncedChanges = true;
-  clearTimeout(supabaseSyncTimer);
-  setSupabaseSyncStatus("Saving change to Supabase...");
-
-  supabaseSyncTimer = setTimeout(() => {
-    autoSaveSupabaseBackup();
-  }, 2000);
-}
-function flushSupabaseSync() {
-  if (!supabaseHasUnsyncedChanges || !supabaseUser || !encryptionUnlocked) return;
-
-  clearTimeout(supabaseSyncTimer);
-  autoSaveSupabaseBackup();
+  // Local-only mode keeps data in memory until the user exports it.
 }
 
 function clearLocalData() {
-  if (!canWriteSupabaseData()) return;
-
-  const confirmed = confirm("Clear all encrypted Supabase data for your signed-in account?");
+  const confirmed = confirm("Clear all local data from this page?");
   if (!confirmed) return;
 
   expenses = [];
@@ -3097,10 +1382,8 @@ function importData() {
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      if (!canWriteSupabaseData()) return;
 
     applyBackupData(data);
-    markCurrentDataMonthsLoaded();
     noteLocalDataChanged();
     alert("Data imported successfully!");
     } catch {
@@ -3136,8 +1419,6 @@ function setAnalyticsFilter(type, el) {
 }
 
 function deleteExpense(index) {
-  if (!canWriteSupabaseData()) return;
-
   expenses.splice(index, 1);
   if (editExpenseIndex === index) cancelExpenseEdit();
   else if (editExpenseIndex > index) editExpenseIndex -= 1;
@@ -3146,8 +1427,6 @@ function deleteExpense(index) {
 }
 
 function editExpense(index) {
-  if (!canWriteSupabaseData()) return;
-
   const exp = expenses[index];
   if (!exp) return;
 
@@ -3197,14 +1476,6 @@ function normalizeLoanTypes() {
   });
 }
 
-async function loadActiveMonthChunksIfUnlocked() {
-  if (!encryptionUnlocked || !supabaseUser) return;
-
-  setSupabaseSyncStatus("Loading selected encrypted months...");
-  await loadEncryptedMonthlyChunks(getActiveMonthKeys());
-  setSupabaseSyncStatus("Selected encrypted months loaded.");
-}
-
 async function setCurrentMonth() {
   const now = new Date();
 
@@ -3222,7 +1493,6 @@ if (fp1) fp1.setDate([firstDay, lastDay], true);
 const fp2 = document.getElementById("dateRangeAnalytics")._flatpickr;
 if (fp2) fp2.setDate([firstDay, lastDay], true);
 
-  await loadActiveMonthChunksIfUnlocked();
   render();
   renderAnalytics();
 }
@@ -3231,16 +1501,6 @@ if (fp2) fp2.setDate([firstDay, lastDay], true);
 /* Elements */
 let dateEl, descEl, amountEl, toggleEl;
 let loanDateEl, loanFriendEl, loanAmountEl, loanTypeEl, loanDescEl;
-
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") {
-    flushSupabaseSync();
-  }
-});
-
-window.addEventListener("beforeunload", () => {
-  flushSupabaseSync();
-});
 
 window.onload = async function () {
   dateEl = document.getElementById("date");
@@ -3252,21 +1512,7 @@ window.onload = async function () {
   loanAmountEl = document.getElementById("loanAmount");
   loanTypeEl = document.getElementById("loanType");
   loanDescEl = document.getElementById("loanDesc");
-  document.getElementById("supabaseEmail")?.addEventListener("blur", loadRememberedPhraseForEnteredEmail);
-  document.getElementById("supabaseRememberPhrase")?.addEventListener("change", event => {
-    syncRememberCheckboxes(event.target.checked);
-  });
-  document.getElementById("modalRememberPhrase")?.addEventListener("change", event => {
-    syncRememberCheckboxes(event.target.checked);
-  });
-  document.getElementById("recoveryRememberPhrase")?.addEventListener("change", event => {
-    syncRememberCheckboxes(event.target.checked);
-  });
   updateEditButtons();
-  loadSupabaseSettings();
-  updateSupabaseControls();
-  setSupabaseAuthStatus("Connecting to Supabase...");
-  await ensureSupabaseConnected();
   
   
   flatpickr("#dateRangeAnalytics", {
@@ -3276,7 +1522,6 @@ window.onload = async function () {
     if (selectedDates.length === 2) {
       fromDate = formatDateKey(selectedDates[0]);
       toDate = formatDateKey(selectedDates[1]);
-      await loadActiveMonthChunksIfUnlocked();
       renderExpenses();
 	  renderAnalytics();
     }
@@ -3292,7 +1537,6 @@ window.onload = async function () {
     if (selectedDates.length === 2) {
       fromDate = formatDateKey(selectedDates[0]);
       toDate = formatDateKey(selectedDates[1]);
-      await loadActiveMonthChunksIfUnlocked();
       renderExpenses();
       renderAnalytics();
     }
@@ -3304,3 +1548,4 @@ window.onload = async function () {
 
 </body>
 </html>
+
