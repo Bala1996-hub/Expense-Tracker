@@ -508,11 +508,11 @@ button.add {
   </div>
 
  <div class="filters">
-  <button onclick="setFilter('all', this)" class="active">All</button>
-  <button onclick="setFilter('self', this)">Self</button>
-  <button onclick="setFilter('claim', this)">Claim</button>
+  <button data-filter="all" onclick="setFilter('all', this)" class="active">All</button>
+  <button data-filter="self" onclick="setFilter('self', this)">Self</button>
+  <button data-filter="claim" onclick="setFilter('claim', this)">Claim</button>
    <!-- NEW BUTTON -->
-  <button onclick="setCurrentMonth()" style="font-size:12px; padding:6px 8px;">
+  <button id="expenseMonthButton" onclick="setCurrentMonth()" style="font-size:12px; padding:6px 8px;">
     1 M
   </button>
   <select id="categoryFilter" onchange="setCategoryFilter(this.value)">
@@ -548,11 +548,11 @@ button.add {
 
     <!-- NEW: Sub Tabs -->
     <div class="filters">
-    <button onclick="setAnalyticsFilter('all', this)" class="active">All</button>
-    <button onclick="setAnalyticsFilter('self', this)">Self</button>
-    <button onclick="setAnalyticsFilter('claim', this)">Claim</button>
+    <button data-filter="all" onclick="setAnalyticsFilter('all', this)" class="active">All</button>
+    <button data-filter="self" onclick="setAnalyticsFilter('self', this)">Self</button>
+    <button data-filter="claim" onclick="setAnalyticsFilter('claim', this)">Claim</button>
 
-    <button onclick="setCurrentMonth()">1 M</button>
+    <button id="analyticsMonthButton" onclick="setCurrentMonth()">1 M</button>
 
     <input type="text" id="dateRangeAnalytics" placeholder="Date range">
     </div>
@@ -597,7 +597,7 @@ button.add {
   <div class="row">
     <input type="date" id="date">
     <input type="number" id="amount" placeholder="Amount">
-    <select id="expenseCurrency">
+    <select id="expenseCurrency" onchange="rememberPreferences()">
       <option value="BHD">BHD</option>
       <option value="INR">INR</option>
     </select>
@@ -628,7 +628,7 @@ button.add {
   <div class="row">
     <input type="date" id="loanDate">
     <input type="number" id="loanAmount" placeholder="Amount">
-    <select id="loanCurrency">
+    <select id="loanCurrency" onchange="rememberPreferences()">
       <option value="BHD">BHD</option>
       <option value="INR">INR</option>
     </select>
@@ -677,6 +677,7 @@ let analyticsView = "expenses";
 let categoryFilter = "all";
 let fromDate = null;
 let toDate = null;
+let dateFilterMode = "month";
 let editExpenseIndex = -1;
 let editLoanIndex = -1;
 let selectedCurrency = "BHD";
@@ -716,6 +717,7 @@ function setCurrency(currency) {
   if (selector) selector.value = selectedCurrency;
   render();
   renderAnalytics();
+  rememberPreferences();
 }
 
 function updateExchangeRate(value) {
@@ -730,6 +732,69 @@ function updateExchangeRate(value) {
 function syncExchangeRateInput() {
   const input = document.getElementById("bhdToInrRate");
   if (input) input.value = currencyOptions.INR.perBHD;
+}
+
+function applyPreferences(preferences = {}) {
+  selectedCurrency = currencyOptions[preferences.selectedCurrency] ? preferences.selectedCurrency : selectedCurrency;
+  currentFilter = ["all", "self", "claim"].includes(preferences.currentFilter) ? preferences.currentFilter : currentFilter;
+  analyticsFilter = ["all", "self", "claim"].includes(preferences.analyticsFilter) ? preferences.analyticsFilter : analyticsFilter;
+  analyticsView = ["expenses", "loans"].includes(preferences.analyticsView) ? preferences.analyticsView : analyticsView;
+  categoryFilter = typeof preferences.categoryFilter === "string" ? preferences.categoryFilter : categoryFilter;
+  fromDate = preferences.fromDate || fromDate;
+  toDate = preferences.toDate || toDate;
+  dateFilterMode = preferences.dateFilterMode || dateFilterMode;
+
+  const displaySelector = document.getElementById("currencySelect");
+  if (displaySelector) displaySelector.value = selectedCurrency;
+
+  const expenseSelector = document.getElementById("expenseCurrency");
+  if (expenseSelector && currencyOptions[preferences.expenseCurrency]) {
+    expenseSelector.value = preferences.expenseCurrency;
+  }
+
+  const loanSelector = document.getElementById("loanCurrency");
+  if (loanSelector && currencyOptions[preferences.loanCurrency]) {
+    loanSelector.value = preferences.loanCurrency;
+  }
+
+  syncFilterControls();
+}
+
+function rememberPreferences() {
+  noteLocalDataChanged();
+}
+
+function setButtonGroupActive(selector, value) {
+  document.querySelectorAll(selector).forEach(button => {
+    button.classList.toggle("active", button.dataset.filter === value);
+  });
+}
+
+function syncMonthButtons() {
+  const isMonth = dateFilterMode === "month";
+  document.getElementById("expenseMonthButton")?.classList.toggle("active", isMonth);
+  document.getElementById("analyticsMonthButton")?.classList.toggle("active", isMonth);
+}
+
+function syncFilterControls() {
+  document.querySelectorAll("#expensesTab .filters button[data-filter]")
+    .forEach(button => {
+      const isActive = button.dataset.filter === currentFilter
+        && !(button.dataset.filter === "all" && dateFilterMode === "month");
+      button.classList.toggle("active", isActive);
+    });
+
+  document.querySelectorAll("#analyticsExpenseView .filters button[data-filter]")
+    .forEach(button => {
+      const isActive = button.dataset.filter === analyticsFilter
+        && !(button.dataset.filter === "all" && dateFilterMode === "month");
+      button.classList.toggle("active", isActive);
+    });
+
+  const categorySelect = document.getElementById("categoryFilter");
+  if (categorySelect) categorySelect.value = categoryFilter;
+
+  syncMonthButtons();
 }
 
 function getLimit(category) {
@@ -904,14 +969,19 @@ function addLoan() {
 /* Filter */
 function setFilter(type, el) {
   currentFilter = type;
-  document.querySelectorAll("#expensesTab .filters button").forEach(b => b.classList.remove("active"));
-  el.classList.add("active");
+  if (type === "all") {
+    categoryFilter = "all";
+    clearDateFilters();
+  }
+  syncFilterControls();
   render();
+  rememberPreferences();
 }
 
 function setCategoryFilter(category) {
   categoryFilter = category;
   renderExpenses();
+  rememberPreferences();
 }
 
 function renderCategoryFilter() {
@@ -932,6 +1002,7 @@ function renderCategoryFilter() {
 
   select.value = allCategories.includes(selected) ? selected : "all";
   categoryFilter = select.value;
+  syncFilterControls();
 }
 
 /* Limits */
@@ -960,12 +1031,12 @@ function renderExpenses() {
   expenses.forEach((exp, index) => {
   if (fromDate && exp.date < fromDate) return;
   if (toDate && exp.date > toDate) return;
+    if (currentFilter !== "all" && exp.type !== currentFilter) return;
+    if (categoryFilter !== "all" && exp.category !== categoryFilter) return;
+
     const currency = getRecordCurrency(exp);
     if (exp.type === "self") selfTotal += convertMoney(exp.amount, currency, selectedCurrency);
     else claimTotal += convertMoney(exp.amount, currency, selectedCurrency);
-
-    if (currentFilter !== "all" && exp.type !== currentFilter) return;
-    if (categoryFilter !== "all" && exp.category !== categoryFilter) return;
 
     const totalForCat = expenses
       .filter(e => e.type === "self" && e.category === exp.category)
@@ -1128,6 +1199,7 @@ function editLoan(index) {
   loanFriendEl.value = loan.friend || "";
   loanDescEl.value = loan.desc || "";
   document.getElementById("loanCurrency").value = getRecordCurrency(loan);
+  rememberPreferences();
   updateEditButtons();
   activateTab("loans");
 }
@@ -1382,6 +1454,18 @@ function getBackupData() {
     loans: loans,
     loanFriends: loanFriends,
     limits: limits,
+    preferences: {
+      selectedCurrency: selectedCurrency,
+      expenseCurrency: document.getElementById("expenseCurrency")?.value || "BHD",
+      loanCurrency: document.getElementById("loanCurrency")?.value || "BHD",
+      currentFilter: currentFilter,
+      analyticsFilter: analyticsFilter,
+      analyticsView: analyticsView,
+      categoryFilter: categoryFilter,
+      fromDate: fromDate,
+      toDate: toDate,
+      dateFilterMode: dateFilterMode
+    },
     exchangeRates: {
       BHD_TO_INR: currencyOptions.INR.perBHD
     },
@@ -1397,6 +1481,7 @@ function applyBackupData(data) {
   if (data.exchangeRates?.BHD_TO_INR) {
     currencyOptions.INR.perBHD = Number(data.exchangeRates.BHD_TO_INR) || currencyOptions.INR.perBHD;
   }
+  applyPreferences(data.preferences);
   migrateLoanExpenses();
   normalizeLoanTypes();
   normalizeRecordCurrencies();
@@ -1510,10 +1595,12 @@ function noteLocalDataChanged() {
 function loadLocalData() {
   try {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!saved) return;
+    if (!saved) return false;
     applyBackupData(JSON.parse(saved));
+    return true;
   } catch (error) {
     console.warn("Local load failed", error);
+    return false;
   }
 }
 
@@ -1571,13 +1658,13 @@ function switchAnalyticsView(view, el) {
 
 function setAnalyticsFilter(type, el) {
   analyticsFilter = type;
+  if (type === "all") {
+    clearDateFilters();
+  }
 
-  document.querySelectorAll("#analyticsExpenseView .filters button")
-    .forEach(b => b.classList.remove("active"));
-
-  el.classList.add("active");
-
+  syncFilterControls();
   renderAnalytics();
+  rememberPreferences();
 }
 
 function deleteExpense(index) {
@@ -1599,6 +1686,7 @@ function editExpense(index) {
   descEl.value = exp.desc || "";
   toggleEl.checked = exp.type === "claim";
   document.getElementById("expenseCurrency").value = getRecordCurrency(exp);
+  rememberPreferences();
   updateEditButtons();
   activateTab("expenses");
 }
@@ -1667,6 +1755,20 @@ function normalizeLimits() {
   limits = normalized;
 }
 
+function clearDateFilters() {
+  fromDate = null;
+  toDate = null;
+  dateFilterMode = "all";
+
+  const expensePicker = document.getElementById("dateRange")?._flatpickr;
+  if (expensePicker) expensePicker.clear();
+
+  const analyticsPicker = document.getElementById("dateRangeAnalytics")?._flatpickr;
+  if (analyticsPicker) analyticsPicker.clear();
+
+  syncMonthButtons();
+}
+
 async function setCurrentMonth() {
   const now = new Date();
 
@@ -1676,16 +1778,21 @@ async function setCurrentMonth() {
   // Format to YYYY-MM-DD (for filtering)
   fromDate = formatDateKey(firstDay);
   toDate = formatDateKey(lastDay);
+  dateFilterMode = "month";
 
   // Update Flatpickr UI
   const fp1 = document.getElementById("dateRange")._flatpickr;
-if (fp1) fp1.setDate([firstDay, lastDay], true);
+if (fp1) fp1.setDate([firstDay, lastDay], false);
 
 const fp2 = document.getElementById("dateRangeAnalytics")._flatpickr;
-if (fp2) fp2.setDate([firstDay, lastDay], true);
+if (fp2) fp2.setDate([firstDay, lastDay], false);
+
+  dateFilterMode = "month";
 
   render();
   renderAnalytics();
+  syncMonthButtons();
+  rememberPreferences();
 }
 
 
@@ -1705,7 +1812,7 @@ window.onload = async function () {
   loanDescEl = document.getElementById("loanDesc");
   updateEditButtons();
   syncExchangeRateInput();
-  loadLocalData();
+  const hasSavedLocalData = loadLocalData();
   
   
   flatpickr("#dateRangeAnalytics", {
@@ -1715,8 +1822,11 @@ window.onload = async function () {
     if (selectedDates.length === 2) {
       fromDate = formatDateKey(selectedDates[0]);
       toDate = formatDateKey(selectedDates[1]);
+      dateFilterMode = "custom";
+      syncMonthButtons();
       renderExpenses();
 	  renderAnalytics();
+      rememberPreferences();
     }
   }
 });
@@ -1730,12 +1840,21 @@ window.onload = async function () {
     if (selectedDates.length === 2) {
       fromDate = formatDateKey(selectedDates[0]);
       toDate = formatDateKey(selectedDates[1]);
+      dateFilterMode = "custom";
+      syncMonthButtons();
       renderExpenses();
       renderAnalytics();
+      rememberPreferences();
     }
   }
 });
-	await setCurrentMonth();
+	if (hasSavedLocalData) {
+    syncFilterControls();
+    render();
+    renderAnalytics();
+  } else {
+    await setCurrentMonth();
+  }
 };
 </script>
 
